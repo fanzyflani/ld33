@@ -26,8 +26,8 @@ void gpu_send_control_gp1(int v)
 void gpu_send_data(int v)
 {
 	// Wait until space available in buffer 
-	//while((GP1 & 0x02000000) == 0)
-	//	;
+	//while((GP1 & 0x10000000) != 0)
+		//;
 
 	// Send to GPU 
 	GP0 = v;

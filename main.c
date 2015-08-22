@@ -111,6 +111,9 @@ const uint32_t cube_cmds[6] = {
 	0x28007F7F,
 };
 
+fixed player_x = 0;
+fixed player_y = 0;
+
 int rotang = 0;
 static void update_frame(void)
 {
@@ -181,6 +184,7 @@ static void update_frame(void)
 	}
 
 	// Draw cube
+	gpu_send_control_gp1(0x01000000);
 	for(i = 0; i < 6; i++)
 	{
 		const uint16_t *l = cube_faces[i];
@@ -199,7 +203,6 @@ static void update_frame(void)
 			goto skip_vec;
 
 		// draw
-		gpu_send_control_gp1(0x01000000);
 		gpu_send_control_gp0(cube_cmds[i]);
 		for(j = 0; j < 4; j++)
 		{
@@ -207,21 +210,22 @@ static void update_frame(void)
 				v[l[j]][0],
 				v[l[j]][1]);
 		}
-		for(lag = 0; lag < 0x300; lag++) {}
+
+		// FIXME should actually read status
+		for(lag = 0; lag < 0x100; lag++) {}
 
 		skip_vec: (void)0;
 	}
 
-	/*
-	gpu_send_control_gp1(0x01000000);
-	gpu_send_control_gp0(0x2000007F);
-	gpu_push_vertex(-50, -50);
-	gpu_push_vertex(50, -50);
-	gpu_push_vertex(0, 50);
-	*/
-	for(lag = 0; lag < 0x300; lag++) {}
+	// Draw player
+	gpu_send_control_gp0(0x285F5F3F);
+	gpu_push_vertex(fixtoi(player_x)-7,fixtoi(player_y)-7);
+	gpu_push_vertex(fixtoi(player_x)+7,fixtoi(player_y)-7);
+	gpu_push_vertex(fixtoi(player_x)-7,fixtoi(player_y)+7);
+	gpu_push_vertex(fixtoi(player_x)+7,fixtoi(player_y)+7);
+	for(lag = 0; lag < 0x100; lag++) {}
 
-	// Draw string
+	// Draw strings
 	gpu_send_control_gp1(0x01000000);
 	sprintf(update_str_buf, "ord=%02i row=%02i speed=%03i/%i"
 		, s3mplayer.cord
@@ -232,6 +236,7 @@ static void update_frame(void)
 	screen_print(16, 16+8*0, 0x7F7F7F, update_str_buf);
 	screen_print(16, 16+8*1, 0x7F7F7F, s3mplayer.mod->name);
 
+	/*
 	if(((pad_data&~pad_old_data) & PAD_RIGHT) != 0)
 	{
 		if(s3mplayer.cord > s3mplayer.mod->ord_num-2)
@@ -248,6 +253,7 @@ static void update_frame(void)
 		s3mplayer.crow=64;
 		s3mplayer.ctick = s3mplayer.speed;
 	}
+	*/
 
 	const char *pad_id_str = "Unknown";
 	switch(pad_id)
@@ -279,6 +285,16 @@ static void update_frame(void)
 	// Read joypad
 	pad_old_data = pad_data;
 	joy_readpad();
+
+	// Apply input
+	if((pad_data & PAD_LEFT) != 0)
+		player_x -= 2<<16;
+	if((pad_data & PAD_RIGHT) != 0)
+		player_x += 2<<16;
+	if((pad_data & PAD_UP) != 0)
+		player_y -= 2<<16;
+	if((pad_data & PAD_DOWN) != 0)
+		player_y += 2<<16;
 }
 
 void update_music_status(int ins, int ins_num)
