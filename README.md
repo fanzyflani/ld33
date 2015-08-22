@@ -1,3 +1,7 @@
+LD33 code, no game title yet
+
+**original toolchain disclaimer thing**
+
 This is my personal toolchain for developing PS1 code.
 
 Code and scripts are in the public domain EXCEPT iso2raw.c which is a modified mashup of two pieces of code and is in an unknown state. It is provided because it is VERY USEFUL.
