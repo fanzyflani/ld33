@@ -360,6 +360,27 @@ const uint32_t cube_cmds[6] = {
 	0x28007F7F,
 };
 
+uint16_t pad_data = 0x0000;
+uint16_t pad_id = 0x0000;
+
+static void joy_readpad(void)
+{
+	volatile int lag;
+
+	JOY_CTRL = 0x0003;
+	for(lag = 0; lag < 300; lag++) {}
+	uint8_t v0 = joy_swap(0x01);
+	uint8_t v1 = joy_swap(0x42);
+	uint8_t v2 = joy_swap(0x00);
+	uint8_t v3 = joy_swap(0x00);
+	uint8_t v4 = joy_swap(0x00);
+	JOY_CTRL = 0x0000;
+
+	pad_id   = (((uint16_t)v2)<<8)|v1;
+	pad_data = (((uint16_t)v4)<<8)|v3;
+	pad_data = ~pad_data;
+}
+
 int rotang = 0;
 static void update_frame(void)
 {
@@ -475,20 +496,6 @@ static void update_frame(void)
 	screen_print(16, 16+8*0, 0x7F7F7F, update_str_buf);
 	screen_print(16, 16+8*1, 0x7F7F7F, s3mplayer.mod->name);
 
-	// Read joypad
-	JOY_CTRL = 0x0003;
-	for(lag = 0; lag < 300; lag++) {}
-	uint8_t v0 = joy_swap(0x01);
-	uint8_t v1 = joy_swap(0x42);
-	uint8_t v2 = joy_swap(0x00);
-	uint8_t v3 = joy_swap(0x00);
-	uint8_t v4 = joy_swap(0x00);
-	JOY_CTRL = 0x0000;
-
-	uint16_t pad_id   = (((uint16_t)v2)<<8)|v1;
-	uint16_t pad_data = (((uint16_t)v4)<<8)|v3;
-	pad_data = ~pad_data;
-
 	if(((pad_data&~pad_old_data) & PAD_RIGHT) != 0)
 	{
 		if(s3mplayer.cord > s3mplayer.mod->ord_num-2)
@@ -505,8 +512,6 @@ static void update_frame(void)
 		s3mplayer.crow=64;
 		s3mplayer.ctick = s3mplayer.speed;
 	}
-
-	pad_old_data = pad_data;
 
 	const char *pad_id_str = "Unknown";
 	switch(pad_id)
@@ -540,6 +545,10 @@ static void update_frame(void)
 	screen_buffer = (screen_buffer == 0 ? 240 : 0);
 	gpu_draw_range(0, screen_buffer, 320, 240 + screen_buffer);
 	gpu_draw_offset(0 + 160, screen_buffer + 120);
+
+	// Read joypad
+	pad_old_data = pad_data;
+	joy_readpad();
 }
 
 void update_music_status(int ins, int ins_num)
