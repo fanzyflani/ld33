@@ -91,7 +91,7 @@ popall:
 	.align 5
 	.global fsys_rawcga
 fsys_rawcga:
-	.incbin "rawcga.bin"
+	.incbin "dat/rawcga.bin"
 	.align 5
 	.global fsys_s3m_test
 fsys_s3m_test:

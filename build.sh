@@ -3,7 +3,7 @@
 
 # REMEMBER TO CHANGE system.cnf IF YOU MODIFY EXE_NAME
 export EXE_NAME=boot
-export ISO_NAME=chaintest
+export ISO_NAME=gm-ld33
 
 echo cc && mipsel-none-elf-gcc -c -fomit-frame-pointer -fno-stack-protector -G1 -O1 -msoft-float -nostdlib -mips1 -march=2000 -o obj/main.o main.c && \
 echo as && mipsel-none-elf-as -G1 -o obj/head.o head.S && \
