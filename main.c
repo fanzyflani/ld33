@@ -63,6 +63,7 @@ void update_music_status(int ins, int ins_num);
 
 #define TARGET_PSX
 #define F3M_FREQ 44100
+// PAL clock
 #define F3M_BUFLEN 882
 #define F3M_CHNS 2
 #include "f3m.c"
@@ -70,6 +71,40 @@ player_s s3mplayer;
 
 extern uint8_t fsys_rawcga[];
 //extern mod_s fsys_s3m_test[];
+const int16_t sintab[256] = {
+0, 402, 803, 1205, 1605, 2005, 2404, 2801,
+3196, 3589, 3980, 4369, 4756, 5139, 5519, 5896,
+6269, 6639, 7005, 7366, 7723, 8075, 8423, 8765,
+9102, 9434, 9759, 10079, 10393, 10701, 11002, 11297,
+11585, 11866, 12139, 12406, 12665, 12916, 13159, 13395,
+13622, 13842, 14053, 14255, 14449, 14634, 14810, 14978,
+15136, 15286, 15426, 15557, 15678, 15790, 15892, 15985,
+16069, 16142, 16206, 16260, 16305, 16339, 16364, 16379,
+16384, 16379, 16364, 16339, 16305, 16260, 16206, 16142,
+16069, 15985, 15892, 15790, 15678, 15557, 15426, 15286,
+15136, 14978, 14810, 14634, 14449, 14255, 14053, 13842,
+13622, 13395, 13159, 12916, 12665, 12406, 12139, 11866,
+11585, 11297, 11002, 10701, 10393, 10079, 9759, 9434,
+9102, 8765, 8423, 8075, 7723, 7366, 7005, 6639,
+6269, 5896, 5519, 5139, 4756, 4369, 3980, 3589,
+3196, 2801, 2404, 2005, 1605, 1205, 803, 402,
+0, -402, -803, -1205, -1605, -2005, -2404, -2801,
+-3196, -3589, -3980, -4369, -4756, -5139, -5519, -5896,
+-6269, -6639, -7005, -7366, -7723, -8075, -8423, -8765,
+-9102, -9434, -9759, -10079, -10393, -10701, -11002, -11297,
+-11585, -11866, -12139, -12406, -12665, -12916, -13159, -13395,
+-13622, -13842, -14053, -14255, -14449, -14634, -14810, -14978,
+-15136, -15286, -15426, -15557, -15678, -15790, -15892, -15985,
+-16069, -16142, -16206, -16260, -16305, -16339, -16364, -16379,
+-16384, -16379, -16364, -16339, -16305, -16260, -16206, -16142,
+-16069, -15985, -15892, -15790, -15678, -15557, -15426, -15286,
+-15136, -14978, -14810, -14634, -14449, -14255, -14053, -13842,
+-13622, -13395, -13159, -12916, -12665, -12406, -12139, -11866,
+-11585, -11297, -11002, -10701, -10393, -10079, -9759, -9434,
+-9102, -8765, -8423, -8075, -7723, -7366, -7005, -6639,
+-6269, -5896, -5519, -5139, -4756, -4369, -3980, -3589,
+-3196, -2801, -2404, -2005, -1605, -1205, -803, -402,
+};
 
 #define InitHeap(a0, a1) ((void (*)(int, int, int))0x000000A0)(0x39, a0, a1);
 #define malloc(a0) ((void *(*)(int, int))0xA0)(0x33, a0);
@@ -133,33 +168,32 @@ static fixed itofix(int v)
 
 static fixed fixmul(fixed a, fixed b)
 {
-	/*
-	int sign = (a^b)&0x80000000;
+	int64_t ae = a;
+	int64_t be = b;
 
-	//if((a&0x80000000) != 0) a = -a;
-	//if((b&0x80000000) != 0) b = -b;
-	if(a<0) a = -a;
-	if(b<0) b = -b;
-
-	fixed al = (a & 0xFFFF);
-	fixed ah = (a >> 16) & 0x7FFF;
-	fixed bl = (b & 0xFFFF);
-	fixed bh = (b >> 16) & 0x7FFF;
+	int64_t re = ae*be;
+	re >>= 16;
 
 	// TODO: Handle overflow
-	fixed r = ((bl*al + 0x8000)>>16)
-		+ bl*ah + bh*al
-		+ ((ah*bh) << 16);
 
-	if(sign != 0) r = -r;
+	return (fixed)re;
+}
 
-	return r;
-	*/
-	float af = a;
-	float bf = b;
-	float rf = af*bf;
-	rf /= 65536.0f;
-	return (fixed)rf;
+static fixed fixmulf(fixed a, fixed b)
+{
+	return (a>>8)*(b>>8);
+}
+
+static fixed fixdiv(fixed a, fixed b)
+{
+	int64_t ae = a;
+	int64_t be = b;
+
+	ae <<= 16;
+	int64_t re = ae/be;
+
+	// TODO: Handle overflow
+	return (fixed)re;
 }
 
 static fixed fixsin(fixed ang)
@@ -291,13 +325,47 @@ uint8_t joy_swap(uint8_t data)
 #endif
 }
 
-float tri_ang = 0;
 uint16_t pad_old_data = 0xFFFF;
 
+static void screen_print(int x, int y, uint32_t c, const char *str)
+{
+	int i;
+
+	for(i = 0; str[i] != '\x00'; i++)
+	{
+		uint32_t ch = str[i];
+		gpu_send_control_gp0(0xE1080208 | ((ch>>5)));
+		gpu_draw_texmask(8, 8, (ch&31)<<3, 0);
+		gpu_send_control_gp0(0x74000000 | (c & 0x00FFFFFF));
+		gpu_push_vertex(i*8+x-160, y-120);
+		gpu_send_data(0x001C0000);
+	}
+
+}
+
+const uint16_t cube_faces[6][4] = {
+	{0, 1, 2, 3},
+	{0, 4, 1, 5},
+	{0, 2, 4, 6},
+	{7, 3, 5, 1},
+	{7, 6, 3, 2},
+	{7, 5, 6, 4},
+};
+const uint32_t cube_cmds[6] = {
+	0x2800007F,
+	0x28007F00,
+	0x287F0000,
+	0x287F7F00,
+	0x287F007F,
+	0x28007F7F,
+};
+
+int rotang = 0;
 static void update_frame(void)
 {
 	volatile int lag;
-	int i;
+	int x, y, z, i, j;
+	uint8_t update_str_buf[64];
 
 	// Clear screen
 	//gpu_send_control_gp0((screen_buffer == 0 ? 0x027D7D7D : 0x024D4D4D));
@@ -305,51 +373,107 @@ static void update_frame(void)
 	gpu_send_data(0x00000000 + (screen_buffer<<16));
 	gpu_send_data((320) | ((240)<<16));
 
-	// Draw spinny triangle
+	// Draw spinny cube
+	// TODO: spin cube
+	fixed v[8][3];
+	for(z = 0; z < 2; z++)
+	for(y = 0; y < 2; y++)
+	for(x = 0; x < 2; x++)
+	{
+		v[z*4+y*2+x][0] = (x*2-1)*0x10000;
+		v[z*4+y*2+x][1] = (y*2-1)*0x10000;
+		v[z*4+y*2+x][2] = (z*2-1)*0x10000;
+	}
+
+	// Y-rotate cube
+	for(i = 0; i < 8; i++)
+	{
+		fixed tx = v[i][0];
+		fixed tz = v[i][2];
+
+		fixed vs = ((fixed)(sintab[(rotang*3+0x00)&0xFF]))<<2;
+		fixed vc = ((fixed)(sintab[(rotang*3+0x40)&0xFF]))<<2;
+
+		v[i][0] = fixmul(tx, vc) - fixmul(tz, vs);
+		v[i][2] = fixmul(tx, vs) + fixmul(tz, vc);
+	}
+
+	// X-rotate cube
+	for(i = 0; i < 8; i++)
+	{
+		fixed ty = v[i][1];
+		fixed tz = v[i][2];
+
+		fixed vs = ((fixed)(sintab[(rotang*2+0x00)&0xFF]))<<2;
+		fixed vc = ((fixed)(sintab[(rotang*2+0x40)&0xFF]))<<2;
+
+		v[i][1] = fixmul(ty, vc) - fixmul(tz, vs);
+		v[i][2] = fixmul(ty, vs) + fixmul(tz, vc);
+	}
+
+	rotang++;
+
+	// Project cube
+	for(i = 0; i < 8; i++)
+	{
+		v[i][2] += 0x30000;
+		v[i][0] = (fixdiv(v[i][0], v[i][2])*200/2)>>16;
+		v[i][1] = (fixdiv(v[i][1], v[i][2])*200/2)>>16;
+		//sprintf(update_str_buf, "%08X %08X %08X", v[i][0], v[i][1], v[i][2]);
+		//screen_print(16, 16+8*(i+5), 0x00007F, update_str_buf);
+	}
+
+	// Draw cube
+	for(i = 0; i < 6; i++)
+	{
+		const uint16_t *l = cube_faces[i];
+
+		// check facing
+		for(j = 0; j < 4; j++)
+		if(v[l[j]][2] <= 0x0080)
+			goto skip_vec;
+
+		// check direction
+		int dx0 = (v[l[1]][0] - v[l[0]][0]);
+		int dy0 = (v[l[1]][1] - v[l[0]][1]);
+		int dx1 = (v[l[2]][0] - v[l[0]][0]);
+		int dy1 = (v[l[2]][1] - v[l[0]][1]);
+		if(dx0*dy1 - dy0*dx1 < 0)
+			goto skip_vec;
+
+		// draw
+		gpu_send_control_gp1(0x01000000);
+		gpu_send_control_gp0(cube_cmds[i]);
+		for(j = 0; j < 4; j++)
+		{
+			gpu_push_vertex(
+				v[l[j]][0],
+				v[l[j]][1]);
+		}
+		for(lag = 0; lag < 0x300; lag++) {}
+
+		skip_vec: (void)0;
+	}
+
+	/*
 	gpu_send_control_gp1(0x01000000);
 	gpu_send_control_gp0(0x2000007F);
-	//gpu_push_vertex(-50, -50);
-	//gpu_push_vertex(50, -50);
-	//gpu_push_vertex(0, 50);
-	gpu_push_vertex(fixtoi(fixsin(tri_ang)*40), fixtoi(fixcos(tri_ang)*40));
-	gpu_push_vertex(fixtoi(fixsin(tri_ang + 2*FM_PI/3)*40), fixtoi(fixcos(tri_ang + 2*FM_PI/3)*40));
-	gpu_push_vertex(fixtoi(fixsin(tri_ang + 4*FM_PI/3)*40), fixtoi(fixcos(tri_ang + 4*FM_PI/3)*40));
-	/*
-	gpu_push_vertex((int)(sin(tri_ang)*40), (int)(cos(tri_ang)*40));
-	gpu_push_vertex((int)(sin(tri_ang + 2*M_PI/3)*40), (int)(cos(tri_ang + 2*M_PI/3)*40));
-	gpu_push_vertex((int)(sin(tri_ang + 4*M_PI/3)*40), (int)(cos(tri_ang + 4*M_PI/3)*40));
-	tri_ang += M_PI*2.0/60.0;
+	gpu_push_vertex(-50, -50);
+	gpu_push_vertex(50, -50);
+	gpu_push_vertex(0, 50);
 	*/
-	tri_ang += FM_PI*2/180/2;
 	for(lag = 0; lag < 0x300; lag++) {}
 
 	// Draw string
 	gpu_send_control_gp1(0x01000000);
-	uint8_t update_str_buf[64];
 	sprintf(update_str_buf, "ord=%02i row=%02i speed=%03i/%i"
 		, s3mplayer.cord
 		, s3mplayer.crow
 		, s3mplayer.tempo
 		, s3mplayer.speed
 		);
-	for(i = 0; update_str_buf[i] != '\x00'; i++)
-	{
-		uint32_t test_char = update_str_buf[i];
-		gpu_send_control_gp0(0xE1080208 | ((test_char>>5)));
-		gpu_draw_texmask(8, 8, (test_char&31)<<3, 0);
-		gpu_send_control_gp0(0x757F7F7F);
-		gpu_push_vertex(i*8+16-160, 16-120);
-		gpu_send_data(0x001C0000);
-	}
-	for(i = 0; i < 27; i++)
-	{
-		uint32_t test_char = s3mplayer.mod->name[i];
-		gpu_send_control_gp0(0xE1080208 | ((test_char>>5)));
-		gpu_draw_texmask(8, 8, (test_char&31)<<3, 0);
-		gpu_send_control_gp0(0x757F7F7F);
-		gpu_push_vertex(i*8+16-160, 16+8*1-120);
-		gpu_send_data(0x001C0000);
-	}
+	screen_print(16, 16+8*0, 0x7F7F7F, update_str_buf);
+	screen_print(16, 16+8*1, 0x7F7F7F, s3mplayer.mod->name);
 
 	// Read joypad
 	JOY_CTRL = 0x0003;
@@ -406,15 +530,7 @@ static void update_frame(void)
 	}
 
 	sprintf(update_str_buf, "joypad=%04X (%04X: %s)", pad_data, pad_id, pad_id_str);
-	for(i = 0; update_str_buf[i] != '\x00'; i++)
-	{
-		uint32_t test_char = update_str_buf[i];
-		gpu_send_control_gp0(0xE1080208 | ((test_char>>5)));
-		gpu_draw_texmask(8, 8, (test_char&31)<<3, 0);
-		gpu_send_control_gp0(0x757F7F7F);
-		gpu_push_vertex(i*8+16-160, 16+8*3-120);
-		gpu_send_data(0x001C0000);
-	}
+	screen_print(16, 16+8*3, 0x007F7F, update_str_buf);
 
 	while((GP1 & 0x10000000) == 0)
 		{}
