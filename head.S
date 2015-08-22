@@ -28,27 +28,23 @@ aaa_very_start:
 	j aaa_very_start
 	nop
 
+	.global int_handler_stub_start
+	.global int_handler_stub_end
+int_handler_stub_start:
+	lui $2, %hi(int_handler)
+	ori $2, $0, %lo(int_handler)
+	jr $2
+	nop
+int_handler_stub_end:
+
 int_handler:
 	.set noat
-	addiu $sp, $sp, -16*4
-	sw $ra, 0($sp)
-	jal pushall
-	nop
-	.set at
-
-	.set noat
-	jal popall
-	nop
-	lw $ra, 0($sp)
-	addiu $sp, $sp, 16*4
-	.set at
-	rfe
-	nop
-
-pushall:
-	.set noat
+	addiu $sp, $sp, -17*4
 	sw $1, 4*1($sp)
 	.set at
+	mfc0 $k0, $14
+	sw $k0, 4*16($sp)
+	sw $ra, 4*0($sp)
 	sw $2, 4*2($sp)
 	sw $3, 4*3($sp)
 	sw $4, 4*4($sp)
@@ -63,10 +59,12 @@ pushall:
 	sw $13, 4*13($sp)
 	sw $14, 4*14($sp)
 	sw $15, 4*15($sp)
-	jr $ra
-	nop
 
-popall:
+	mfc0 $a0, $13
+	mfc0 $a1, $12
+	move $a2, $k0
+	jal isr_handler
+
 	lw $2, 4*2($sp)
 	lw $3, 4*3($sp)
 	lw $4, 4*4($sp)
@@ -83,9 +81,12 @@ popall:
 	lw $15, 4*15($sp)
 	.set noat
 	lw $1, 4*1($sp)
+	lw $ra, 4*0($sp)
+	lw $k0, 4*16($sp)
+	addiu $sp, $sp, 17*4
+	jr $k0
+	rfe
 	.set at
-	jr $ra
-	nop
 
 	.section ".rodata"
 	.align 5
