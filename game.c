@@ -22,20 +22,20 @@ static void game_update_frame(void)
 	mat4_load_identity(&mat_cam);
 	mat4_translate_vec4_neg(&mat_cam, &player_pos);
 	mat4_rotate_y(&mat_cam, player_ry);
-	mat4_rotate_x(&mat_cam, player_rx);
+	//mat4_rotate_x(&mat_cam, player_rx);
 	mat4_translate_imm3(&mat_cam, 0, 0, 0x40000);
 	mat4_translate_imm3(&mat_cam, 0, 0x10000, 0);
 
 	mat4_load_identity(&mat_icam);
-	mat4_rotate_x(&mat_icam, -player_rx);
+	//mat4_rotate_x(&mat_icam, -player_rx);
 	mat4_rotate_y(&mat_icam, -player_ry);
 	mat4_load_identity(&mat_iplr);
 	mat4_rotate_x(&mat_iplr, -player_rx);
 	mat4_rotate_y(&mat_iplr, -player_ry);
 
 	// Calculate sky
-	int sky = ((fixsin(-player_rx)*120)>>16);
-	int skyswap = (fixcos(-player_rx) <= 0);
+	int sky = 0;//((fixsin(-player_rx)*120)>>16);
+	int skyswap = 0;//(fixcos(-player_rx) <= 0);
 	if(skyswap)
 		sky = -sky;
 
@@ -74,7 +74,7 @@ static void game_update_frame(void)
 
 	mat4_load_identity(&mat_obj);
 	mat4_translate_imm3(&mat_obj, -0x28000, 0, 0x130000);
-	mesh_draw(&poly_building);
+	mesh_draw(&poly_tree1);
 
 	mat4_load_identity(&mat_obj);
 	mat4_translate_imm3(&mat_obj, 0x18000, -0x20000, 0x150000);

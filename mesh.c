@@ -11,7 +11,9 @@ typedef struct poly_chunk
 	fixed priority;
 	int len;
 	uint32_t cmd_list[1+4];
-	uint32_t _pad0[1];
+	vec4 pts[4];
+	vec4 fnorm;
+	//uint32_t _pad0[1];
 } poly_chunk_s;
 
 poly_chunk_s *pclist = NULL;
@@ -22,6 +24,8 @@ mat4 mat_cam, mat_obj;
 mat4 mat_icam;
 mat4 mat_iplr;
 
+vec4 vbase[128];
+
 static void mesh_clear(void)
 {
 	pclist_num = 0;
@@ -29,10 +33,13 @@ static void mesh_clear(void)
 
 static int mesh_flush_sort_compar(const void *a, const void *b)
 {
-	const poly_chunk_s *ap = a;
-	const poly_chunk_s *bp = b;
+	poly_chunk_s *ap = (poly_chunk_s *)a;
+	poly_chunk_s *bp = (poly_chunk_s *)b;
 
-	return bp->priority - ap->priority;
+	fixed apd = ap->pts[0][2];
+	fixed bpd = bp->pts[0][2];
+
+	return bpd-apd;
 }
 
 static void mesh_flush(void)
@@ -55,7 +62,7 @@ static void mesh_flush(void)
 
 }
 
-static poly_chunk_s *mesh_alloc_poly(fixed priority)
+static poly_chunk_s *mesh_alloc_poly()
 {
 	// Get index
 	int idx = pclist_num++;
@@ -74,13 +81,11 @@ static poly_chunk_s *mesh_alloc_poly(fixed priority)
 		pclist = realloc(pclist, pclist_max*sizeof(poly_chunk_s));
 	}
 
-	pclist[idx].priority = priority;
-
 	// Return!
 	return &pclist[idx];
 }
 
-static void mesh_add_poly(const mesh_s *mesh, vec4 *v, int ic, int ii)
+static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii)
 {
 	int i, j;
 	const uint16_t *l = &mesh->i[ii];
@@ -93,32 +98,33 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *v, int ic, int ii)
 	// Check facing + range
 	for(j = 0; j < vcount; j++)
 	{
-		if(v[l[j]][2] <= 0x0008) return;
-		if(v[l[j]][0] <= -1023) return;
-		if(v[l[j]][0] >=  1023) return;
-		if(v[l[j]][1] <= -1023) return;
-		if(v[l[j]][1] >=  1023) return;
+		if(vp[l[j]][2] <= 0x0008) return;
+		if(vp[l[j]][0] <= -1023) return;
+		if(vp[l[j]][0] >=  1023) return;
+		if(vp[l[j]][1] <= -1023) return;
+		if(vp[l[j]][1] >=  1023) return;
 	}
 
 	// Check direction (2D cross product)
 	// Abuse top bit for bidirectional flag
 	if((mesh->c[ic] & 0x80000000) == 0)
 	{
-		int dx0 = (v[l[1]][0] - v[l[0]][0]);
-		int dy0 = (v[l[1]][1] - v[l[0]][1]);
-		int dx1 = (v[l[2]][0] - v[l[0]][0]);
-		int dy1 = (v[l[2]][1] - v[l[0]][1]);
+		int dx0 = (vp[l[1]][0] - vp[l[0]][0]);
+		int dy0 = (vp[l[1]][1] - vp[l[0]][1]);
+		int dx1 = (vp[l[2]][0] - vp[l[0]][0]);
+		int dy1 = (vp[l[2]][1] - vp[l[0]][1]);
 		if(dx0*dy1 - dy0*dx1 < 0)
 			return;
 	}
 
 	// Calculate cross product
-	//vec4 fnorm;
-	//vec4_cross_origin(&fnorm, &mesh->v[l[0]], &mesh->v[l[1]], &mesh->v[l[2]]);
+	vec4 fnorm;
+	vec4_cross_origin(&fnorm, &vbase[l[0]], &vbase[l[1]], &vbase[l[2]]);
 
 	// Calculate priority
 	//fixed priority = vec4_dot_3(&fnorm, mat_cam[3]) - vec4_dot_3(&fnorm, v[l[1]]);
 	// kinda bad priority, but it'll do for now
+	/*
 	vec4 vsum;
 	for(j = 0; j < 3; j++)
 	{
@@ -129,18 +135,22 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *v, int ic, int ii)
 		vsum[j] /= vcount;
 	}
 	fixed priority = -vec4_dot_3(&mat_icam[2], &vsum);
+	*/
+	// priority will be handled on a case-by-case basis
 
 	// Draw
-	poly_chunk_s *pc = mesh_alloc_poly(priority);
+	poly_chunk_s *pc = mesh_alloc_poly();
 	if(pc != NULL)
 	{
 		pc->len = 1+vcount;
+		vec4_copy(&pc->fnorm, &fnorm);
 		pc->cmd_list[0] = mesh->c[ic] & 0x7FFFFFFF;
 		for(j = 0; j < vcount; j++)
 		{
+			vec4_copy((vec4 *)&pc->pts[j], (vec4 *)&vbase[l[j]]);
 			pc->cmd_list[j+1] = (
-				(v[l[j]][0]&0xFFFF) +
-				(v[l[j]][1]<<16));
+				(vp[l[j]][0]&0xFFFF) +
+				(vp[l[j]][1]<<16));
 		}
 	}
 }
@@ -151,7 +161,8 @@ static void mesh_draw(const mesh_s *mesh)
 	int i, j;
 
 	// Build points
-	static vec4 v[128];
+	vec4 *v = vbase;
+	static vec4 vp[128];
 	int iv, ii, ic;
 	for(i = 0; i < mesh->vc && i < 128; i++)
 	{
@@ -171,12 +182,13 @@ static void mesh_draw(const mesh_s *mesh)
 	*/
 	for(i = 0; i < mesh->vc && i < 128; i++)
 	{
-		v[i][0] = v[i][0]*112/(v[i][2] > 1 ? v[i][2] : 1);
-		v[i][1] = v[i][1]*112/(v[i][2] > 1 ? v[i][2] : 1);
-		if(v[i][0] < -1023) v[i][0] = -1023;
-		if(v[i][0] >  1023) v[i][0] =  1023;
-		if(v[i][1] < -1023) v[i][1] = -1023;
-		if(v[i][1] >  1023) v[i][1] =  1023;
+		vp[i][0] = v[i][0]*112/(v[i][2] > 1 ? v[i][2] : 1);
+		vp[i][1] = v[i][1]*112/(v[i][2] > 1 ? v[i][2] : 1);
+		vp[i][2] = v[i][2];
+		if(vp[i][0] < -1023) vp[i][0] = -1023;
+		if(vp[i][0] >  1023) vp[i][0] =  1023;
+		if(vp[i][1] < -1023) vp[i][1] = -1023;
+		if(vp[i][1] >  1023) vp[i][1] =  1023;
 	}
 
 	// Draw mesh
@@ -184,7 +196,7 @@ static void mesh_draw(const mesh_s *mesh)
 	for(ic = 0, ii = 0; mesh->c[ic] != 0;
 		ii += ((mesh->c[ic++] & 0x08000000) != 0 ? 4 : 3))
 	{
-		mesh_add_poly(mesh, v, ic, ii);
+		mesh_add_poly(mesh, vp, ic, ii);
 	}
 }
 

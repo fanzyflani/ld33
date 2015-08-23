@@ -37,7 +37,7 @@ void vec4_cross(vec4 *v, vec4 *a, vec4 *b)
 	(*v)[3] = 0;
 }
 
-void vec4_cross_origin(vec4 *v, const vec4 *a, const vec4 *o, const vec4 *b)
+void vec4_cross_origin(vec4 *v, vec4 *a, vec4 *o, vec4 *b)
 {
 	int i;
 
