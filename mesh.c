@@ -42,12 +42,13 @@ static int mesh_flush_sort_compar(const void *a, const void *b)
 	return bpd-apd;
 }
 
-static void mesh_flush(void)
+static void mesh_flush(int do_sort)
 {
 	int i, j;
 
 	// Sort
-	qsort(pclist, pclist_num, sizeof(poly_chunk_s), mesh_flush_sort_compar);
+	if(do_sort)
+		qsort(pclist, pclist_num, sizeof(poly_chunk_s), mesh_flush_sort_compar);
 
 	// Draw
 	for(i = 0; i < pclist_num; i++)

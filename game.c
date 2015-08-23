@@ -90,7 +90,7 @@ static void game_update_frame(void)
 	mesh_draw(&poly_ship1);
 
 	// finish drawing
-	mesh_flush();
+	mesh_flush(1);
 
 	// Draw strings
 	gpu_send_control_gp1(0x01000000);

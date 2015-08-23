@@ -214,10 +214,10 @@ int main(void)
 		}
 	}
 
-	// Kill 3 seconds while we wait for the PS1 chime to stop
+	// Kill 5 seconds while we wait for the PS1 chime to stop
 	for(i = 0; i < 50*1; i++) // PAL, fast test
-	//for(i = 0; i < 50*3; i++) // PAL
-	//for(i = 0; i < 60*3; i++) // NTSC
+	//for(i = 0; i < 50*5; i++) // PAL
+	//for(i = 0; i < 60*5; i++) // NTSC
 	{
 		while(TMR_n_COUNT(1) < 0x80) {}
 		while(TMR_n_COUNT(1) >= 0x80)
