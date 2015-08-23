@@ -26,10 +26,22 @@ static void mesh_clear(void)
 	pclist_num = 0;
 }
 
+static int mesh_flush_sort_compar(const void *a, const void *b)
+{
+	const poly_chunk_s *ap = a;
+	const poly_chunk_s *bp = b;
+
+	return bp->priority - ap->priority;
+}
+
 static void mesh_flush(void)
 {
 	int i, j;
 
+	// Sort
+	qsort(pclist, pclist_num, sizeof(poly_chunk_s), mesh_flush_sort_compar);
+
+	// Draw
 	for(i = 0; i < pclist_num; i++)
 	{
 		gpu_send_control_gp0(pclist[i].cmd_list[0]);
@@ -37,6 +49,7 @@ static void mesh_flush(void)
 			gpu_send_data(pclist[i].cmd_list[j]);
 	}
 
+	// Clear
 	mesh_clear();
 
 }
@@ -60,9 +73,7 @@ static poly_chunk_s *mesh_alloc_poly(fixed priority)
 		pclist = realloc(pclist, pclist_max*sizeof(poly_chunk_s));
 	}
 
-	// Sort
 	pclist[idx].priority = priority;
-	// TODO
 
 	// Return!
 	return &pclist[idx];
@@ -97,11 +108,15 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *v, int ic, int ii)
 		return;
 
 	// Calculate cross product
-	vec4 fnorm;
-	vec4_cross_origin(&fnorm, &mesh->v[l[0]], &mesh->v[l[1]], &mesh->v[l[2]]);
+	//vec4 fnorm;
+	//vec4_cross_origin(&fnorm, &mesh->v[l[0]], &mesh->v[l[1]], &mesh->v[l[2]]);
+
+	// Calculate priority
+	//fixed priority = vec4_dot_3(&fnorm, mat_cam[3]) - vec4_dot_3(&fnorm, v[l[1]]);
+	// kinda bad priority, but it'll do for now
+	fixed priority = vec4_dot_3(&mat_cam[3], &v[l[1]]);
 
 	// Draw
-	fixed priority = 0;
 	poly_chunk_s *pc = mesh_alloc_poly(priority);
 	if(pc != NULL)
 	{
