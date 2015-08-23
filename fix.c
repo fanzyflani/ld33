@@ -1,5 +1,5 @@
 typedef int fixed;
-#define FM_PI ((fixed)0x0003243F)
+#define FM_PI ((fixed)0x00008000)
 
 const int16_t sintab[256] = {
 	0, 402, 803, 1205, 1605, 2005, 2404, 2801,
@@ -76,34 +76,46 @@ static fixed fixdiv(fixed a, fixed b)
 	return (fixed)re;
 }
 
-static fixed fixsin(fixed ang)
+static fixed fixsqrt(fixed v)
 {
 	int i;
 
-	// Clamp angle to 0 <= ang < 2 * FM_PI
-	if(ang < 0) ang = ((FM_PI*2) - (-ang) % (FM_PI*2)) % (FM_PI*2);
-	else ang = ang % (FM_PI*2);
+	// WARNING: ASSUMES v IS POSITIVE
 
-	// Now wrap to -FM_PI <= ang < FM_PI
-	if(ang >= FM_PI) ang -= FM_PI*2;
+	fixed ret = 0;
+	fixed ret2 = 0;
+	for(i = 15; i >= 1; i--)
+	{
+		fixed tret2 = ret2 + (2<<i);
+		if(tret2 < v)
+		{
+			ret += (1<<i);
+			ret2 = tret2;
+		}
+	}
 
-	// Get sign bit and deal with corner
-	int sign = ang & 0x80000000;
-	if(sign != 0) ang = -ang;
-
-	// Calculate
-	fixed acc1 = ang;
-	fixed acc2 = fixmul(ang, ang);
-	fixed acc3 = fixmul(acc2, acc1)/6;
-	fixed acc5 = fixmul(acc2, acc3)/20;
-	fixed acc7 = fixmul(acc2, acc5)/42;
-	fixed ret = acc1 - acc3 + acc5 - acc7;
-
-	// Invert if originally negative
-	if(sign != 0) ret = -ret;
-
-	// Return!
 	return ret;
+}
+
+static fixed fixisqrt(fixed v)
+{
+	// TODO: Proper inverse square root
+	float sq = fixsqrt(v);
+	
+	if(sq == 0) sq = 1; // Prevent div-by-zero (yes, this crashes a PS1!)
+	return fixdiv(0x10000, sq);
+}
+
+
+static fixed fixsin(fixed ang)
+{
+	int subang = ang&0xFF;
+	int quoang = (ang>>8)&0xFF;
+
+	fixed v0 = sintab[quoang];
+	fixed v1 = sintab[(quoang+1)&0xFF];
+
+	return (v0*(256-subang) + v1*subang + (1<<5))>>6;
 }
 
 static fixed fixcos(fixed ang)

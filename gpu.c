@@ -1,3 +1,6 @@
+volatile int screen_buffer = 0;
+volatile int vblank_triggered = 0;
+
 void gpu_send_control_gp0(int v)
 {
 	int k;
@@ -106,5 +109,69 @@ static void screen_print(int x, int y, uint32_t c, const char *str)
 		gpu_send_data(0x001C0000);
 	}
 
+}
+
+static void gpu_init(void)
+{
+	int i;
+	int x, y;
+	volatile int k = 0;
+
+	// Reset GPU 
+	gpu_send_control_gp1(0x00000000);
+
+	// Fix up DMA 
+	gpu_send_control_gp1(0x04000001);
+	gpu_send_control_gp1(0x01000000);
+
+	// Set display area 
+	//gpu_crtc_range(0x260, 0x88-(224/2), 320*8, 224); // NTSC
+	gpu_crtc_range(0x260, 0xA3-(224/2), 320*8, 224); // PAL
+	gpu_display_start(0, 8);
+
+	// Set display mode 
+	//gpu_send_control_gp1(0x08000001); // NTSC
+	gpu_send_control_gp1(0x08000009); // PAL
+
+	// Set draw mode 
+	gpu_send_control_gp0(0xE6000000); gpu_send_control_gp0(0xE1000618); // Texpage
+	gpu_draw_texmask(32, 32, 0, 0);
+	gpu_draw_range(0, 0, 320, 240);
+
+	// Copy CLUT to GPU
+	gpu_send_control_gp1(0x01000000);
+	gpu_send_control_gp0(0xA0000000);
+	//gpu_send_data(0x01F70000);
+	gpu_send_data(0x000001C0);
+	gpu_send_data(0x00010002);
+	//gpu_send_data(0x7FFF0001);
+	gpu_send_data(0x7FFF0000);
+
+	// Copy font to GPU
+	gpu_send_control_gp1(0x01000000);
+	gpu_send_control_gp0(0xA0000000);
+	gpu_send_data(0x00000200);
+	gpu_send_data(0x00080200);
+
+	for(y = 0; y < 8; y++)
+	for(x = 0; x < 256; x++)
+	{
+		uint32_t wdata = 0;
+		for(i = 0; i < 8; i++, wdata <<= 4)
+		if((fsys_rawcga[y+x*8]&(1<<i)) != 0)
+			wdata |= 0x1;
+
+		gpu_send_data(wdata);
+	}
+
+	// Enable display 
+	gpu_send_control_gp1(0x03000000);
+
+	// Clear screen 
+	gpu_send_control_gp0(0x027D7D7D);
+	gpu_send_data(0x00000000);
+	gpu_send_data((320) | ((240)<<16));
+	screen_buffer = 0;
+	gpu_display_start(0, screen_buffer + 8);
 }
 

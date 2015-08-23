@@ -18,6 +18,7 @@ extern uint8_t fsys_rawcga[];
 //extern mod_s fsys_s3m_test[];
 
 #include "fix.c"
+#include "vec.c"
 #include "gpu.c"
 #include "joy.c"
 
@@ -26,10 +27,6 @@ void yield(void);
 
 extern volatile uint8_t _BSS_START[];
 extern volatile uint8_t _BSS_END[];
-
-volatile int screen_buffer = 0;
-
-volatile int vblank_triggered = 0;
 
 void isr_handler(uint32_t cause, uint32_t sr, uint32_t epc)
 {
@@ -103,16 +100,17 @@ const uint16_t cube_faces[6][4] = {
 	{7, 5, 6, 4},
 };
 const uint32_t cube_cmds[6] = {
-	0x2800007F,
-	0x28007F00,
-	0x287F0000,
-	0x287F7F00,
-	0x287F007F,
-	0x28007F7F,
+	0x3800007F,
+	0x38007F00,
+	0x387F0000,
+	0x387F7F00,
+	0x387F007F,
+	0x38007F7F,
 };
 
 fixed player_x = 0;
 fixed player_y = 0;
+fixed player_ry = 0;
 
 int rotang = 0;
 static void update_frame(void)
@@ -134,8 +132,7 @@ static void update_frame(void)
 	gpu_send_data((320) | ((240)<<16));
 
 	// Draw spinny cube
-	// TODO: spin cube
-	fixed v[8][3];
+	vec4 v[8+8];
 	for(z = 0; z < 2; z++)
 	for(y = 0; y < 2; y++)
 	for(x = 0; x < 2; x++)
@@ -143,45 +140,44 @@ static void update_frame(void)
 		v[z*4+y*2+x][0] = (x*2-1)*0x10000;
 		v[z*4+y*2+x][1] = (y*2-1)*0x10000;
 		v[z*4+y*2+x][2] = (z*2-1)*0x10000;
+		v[z*4+y*2+x][3] = 0x10000;
+
+		v[8+z*4+y*2+x][0] = (x*2-1)*0x10000;
+		v[8+z*4+y*2+x][1] = (y*2-1)*0x10000;
+		v[8+z*4+y*2+x][2] = (z*2-1)*0x10000;
+		v[8+z*4+y*2+x][3] = 0x00000;
+		vec4_normalize_3(&v[8+z*4+y*2+x]);
 	}
 
-	// Y-rotate cube
-	for(i = 0; i < 8; i++)
-	{
-		fixed tx = v[i][0];
-		fixed tz = v[i][2];
+	// Build matrix
+	mat4 mat_cam;
+	mat4 mat_icam;
+	mat4_load_identity(&mat_cam);
+	mat4_rotate_y(&mat_cam, rotang*0x30*5);
+	mat4_rotate_x(&mat_cam, rotang*0x30*5);
+	mat4_translate_imm3(&mat_cam, -player_x, 0x40000, -player_y + 0x40000);
+	mat4_rotate_y(&mat_cam, player_ry);
 
-		fixed vs = ((fixed)(sintab[(rotang*3+0x00)&0xFF]))<<2;
-		fixed vc = ((fixed)(sintab[(rotang*3+0x40)&0xFF]))<<2;
+	mat4_load_identity(&mat_icam);
+	mat4_rotate_y(&mat_icam, -player_ry);
 
-		v[i][0] = fixmul(tx, vc) - fixmul(tz, vs);
-		v[i][2] = fixmul(tx, vs) + fixmul(tz, vc);
-	}
-
-	// X-rotate cube
-	for(i = 0; i < 8; i++)
-	{
-		fixed ty = v[i][1];
-		fixed tz = v[i][2];
-
-		fixed vs = ((fixed)(sintab[(rotang*2+0x00)&0xFF]))<<2;
-		fixed vc = ((fixed)(sintab[(rotang*2+0x40)&0xFF]))<<2;
-
-		v[i][1] = fixmul(ty, vc) - fixmul(tz, vs);
-		v[i][2] = fixmul(ty, vs) + fixmul(tz, vc);
-	}
+	// Apply matrix
+	for(i = 0; i < 8+8; i++)
+		mat4_apply_vec4(&v[i], &mat_cam);
 
 	rotang++;
 
 	// Project cube
 	for(i = 0; i < 8; i++)
 	{
-		v[i][2] += 0x30000;
-		v[i][0] = (fixdiv(v[i][0], v[i][2])*200/2)>>16;
-		v[i][1] = (fixdiv(v[i][1], v[i][2])*200/2)>>16;
+		v[i][0] = v[i][0]*112/v[i][2];
+		v[i][1] = v[i][1]*112/v[i][2];
 		//sprintf(update_str_buf, "%08X %08X %08X", v[i][0], v[i][1], v[i][2]);
 		//screen_print(16, 16+8*(i+5), 0x00007F, update_str_buf);
 	}
+
+	vec4 lite_dst = {0x2000, -0xA000, -0xA000, 0};
+	vec4_normalize_3(&lite_dst);
 
 	// Draw cube
 	gpu_send_control_gp1(0x01000000);
@@ -189,10 +185,20 @@ static void update_frame(void)
 	{
 		const uint16_t *l = cube_faces[i];
 
-		// check facing
+		// check facing + range
 		for(j = 0; j < 4; j++)
-		if(v[l[j]][2] <= 0x0080)
-			goto skip_vec;
+		{
+			if(v[l[j]][2] <= 0x0080)
+				goto skip_vec;
+			if(v[l[j]][0] <= -1023)
+				goto skip_vec;
+			if(v[l[j]][0] >=  1023)
+				goto skip_vec;
+			if(v[l[j]][1] <= -1023)
+				goto skip_vec;
+			if(v[l[j]][1] >=  1023)
+				goto skip_vec;
+		}
 
 		// check direction
 		int dx0 = (v[l[1]][0] - v[l[0]][0]);
@@ -203,9 +209,26 @@ static void update_frame(void)
 			goto skip_vec;
 
 		// draw
-		gpu_send_control_gp0(cube_cmds[i]);
+		int pr = (cube_cmds[i]>>16)&0xFF;
+		int pg = (cube_cmds[i]>> 8)&0xFF;
+		int pb = (cube_cmds[i]>> 0)&0xFF;
+
 		for(j = 0; j < 4; j++)
 		{
+			vec4 *norm = &v[l[j]+8];
+			fixed lite = vec4_dot_3(norm, &lite_dst);
+			if(lite < 0) lite = 0;
+			int r = (pr*lite)>>16;
+			int g = (pg*lite)>>16;
+			int b = (pb*lite)>>16;
+
+			if(r > 0xFF) r = 0xFF;
+			if(g > 0xFF) g = 0xFF;
+			if(b > 0xFF) b = 0xFF;
+			uint32_t col_merge = (r<<16)|(g<<8)|(b<<0);
+			if(j == 0) gpu_send_control_gp0(col_merge | (cube_cmds[i]&0xFF000000));
+			else gpu_send_data(col_merge);
+
 			gpu_push_vertex(
 				v[l[j]][0],
 				v[l[j]][1]);
@@ -218,12 +241,14 @@ static void update_frame(void)
 	}
 
 	// Draw player
+	/*
 	gpu_send_control_gp0(0x285F5F3F);
 	gpu_push_vertex(fixtoi(player_x)-7,fixtoi(player_y)-7);
 	gpu_push_vertex(fixtoi(player_x)+7,fixtoi(player_y)-7);
 	gpu_push_vertex(fixtoi(player_x)-7,fixtoi(player_y)+7);
 	gpu_push_vertex(fixtoi(player_x)+7,fixtoi(player_y)+7);
 	for(lag = 0; lag < 0x100; lag++) {}
+	*/
 
 	// Draw strings
 	gpu_send_control_gp1(0x01000000);
@@ -286,15 +311,36 @@ static void update_frame(void)
 	pad_old_data = pad_data;
 	joy_readpad();
 
+	vec4 fv = {0, 0, 4<<10, 0<<16};
+	vec4 sv = {4<<10, 0, 0, 0<<16};
+	mat4_apply_vec4(&fv, &mat_icam);
+	mat4_apply_vec4(&sv, &mat_icam);
+
 	// Apply input
+	if((pad_data & PAD_L1) != 0)
+		player_ry -= 1<<8;
+	if((pad_data & PAD_R1) != 0)
+		player_ry += 1<<8;
 	if((pad_data & PAD_LEFT) != 0)
-		player_x -= 2<<16;
+	{
+		player_x -= sv[0];
+		player_y -= sv[2];
+	}
 	if((pad_data & PAD_RIGHT) != 0)
-		player_x += 2<<16;
+	{
+		player_x += sv[0];
+		player_y += sv[2];
+	}
 	if((pad_data & PAD_UP) != 0)
-		player_y -= 2<<16;
+	{
+		player_x += fv[0];
+		player_y += fv[2];
+	}
 	if((pad_data & PAD_DOWN) != 0)
-		player_y += 2<<16;
+	{
+		player_x -= fv[0];
+		player_y -= fv[2];
+	}
 }
 
 void update_music_status(int ins, int ins_num)
@@ -349,66 +395,10 @@ void update_music_status(int ins, int ins_num)
 
 int main(void)
 {
-	int i;
-	volatile int k = 0;
-	int x, y, xc, yc;
+	volatile int k;
 
-	// Reset GPU 
-	gpu_send_control_gp1(0x00000000);
-
-	// Fix up DMA 
-	gpu_send_control_gp1(0x04000001);
-	gpu_send_control_gp1(0x01000000);
-
-	// Set display area 
-	//gpu_crtc_range(0x260, 0x88-(224/2), 320*8, 224); // NTSC
-	gpu_crtc_range(0x260, 0xA3-(224/2), 320*8, 224); // PAL
-	gpu_display_start(0, 8);
-
-	// Set display mode 
-	//gpu_send_control_gp1(0x08000001); // NTSC
-	gpu_send_control_gp1(0x08000009); // PAL
-
-	// Set draw mode 
-	gpu_send_control_gp0(0xE6000000); gpu_send_control_gp0(0xE1000618); // Texpage
-	gpu_draw_texmask(32, 32, 0, 0);
-	gpu_draw_range(0, 0, 320, 240);
-
-	// Copy CLUT to GPU
-	gpu_send_control_gp1(0x01000000);
-	gpu_send_control_gp0(0xA0000000);
-	//gpu_send_data(0x01F70000);
-	gpu_send_data(0x000001C0);
-	gpu_send_data(0x00010002);
-	//gpu_send_data(0x7FFF0001);
-	gpu_send_data(0x7FFF0000);
-
-	// Copy font to GPU
-	gpu_send_control_gp1(0x01000000);
-	gpu_send_control_gp0(0xA0000000);
-	gpu_send_data(0x00000200);
-	gpu_send_data(0x00080200);
-
-	for(y = 0; y < 8; y++)
-	for(x = 0; x < 256; x++)
-	{
-		uint32_t wdata = 0;
-		for(i = 0; i < 8; i++, wdata <<= 4)
-		if((fsys_rawcga[y+x*8]&(1<<i)) != 0)
-			wdata |= 0x1;
-
-		gpu_send_data(wdata);
-	}
-
-	// Enable display 
-	gpu_send_control_gp1(0x03000000);
-
-	// Clear screen 
-	gpu_send_control_gp0(0x027D7D7D);
-	gpu_send_data(0x00000000);
-	gpu_send_data((320) | ((240)<<16));
-	screen_buffer = 0;
-	gpu_display_start(0, screen_buffer + 8);
+	// Set up GPU
+	gpu_init();
 
 	// Set up joypad
 	JOY_CTRL = 0x0000;
