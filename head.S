@@ -94,6 +94,12 @@ int_handler:
 fsys_rawcga:
 	.incbin "dat/rawcga.bin"
 	.align 5
+
+	.global fsys_piresy
+fsys_piresy:
+	.incbin "dat/piresy.tga"
+	.align 5
+
 	.global fsys_s3m_test
 fsys_s3m_test:
 	.incbin "dat/33-t1.s3m"

@@ -29,6 +29,28 @@ fixed vec4_selfdot_3(vec4 *v)
 	return sum;
 }
 
+void vec4_cross(vec4 *v, vec4 *a, vec4 *b)
+{
+	(*v)[0] = fixmulf((*a)[1], (*b)[2]) - fixmulf((*a)[2], (*b)[1]);
+	(*v)[1] = fixmulf((*a)[2], (*b)[0]) - fixmulf((*a)[0], (*b)[2]);
+	(*v)[2] = fixmulf((*a)[0], (*b)[1]) - fixmulf((*a)[1], (*b)[0]);
+	(*v)[3] = 0;
+}
+
+void vec4_cross_origin(vec4 *v, const vec4 *a, const vec4 *o, const vec4 *b)
+{
+	int i;
+
+	vec4 ao, bo;
+	for(i = 0; i < 3; i++)
+	{
+		ao[i] = (*a)[i] - (*o)[i];
+		bo[i] = (*b)[i] - (*o)[i];
+	}
+
+	vec4_cross(v, &ao, &bo);
+}
+
 void vec4_normalize_3(vec4 *v)
 {
 	int i;

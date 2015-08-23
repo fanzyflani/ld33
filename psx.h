@@ -12,6 +12,12 @@
 #define I_STAT (*(volatile uint32_t *)(PSX_IOBASE + 0x1F801070))
 #define I_MASK (*(volatile uint32_t *)(PSX_IOBASE + 0x1F801074))
 
+#define DMA_n_MADR(n) (*(volatile uint32_t *)(PSX_IOBASE + 0x1F801080 + (n)*0x10))
+#define DMA_n_BCR(n) (*(volatile uint32_t *)(PSX_IOBASE + 0x1F801084 + (n)*0x10))
+#define DMA_n_CHCR(n) (*(volatile uint32_t *)(PSX_IOBASE + 0x1F801088 + (n)*0x10))
+#define DMA_DPCR (*(volatile uint32_t *)(PSX_IOBASE + 0x1F8010F0))
+#define DMA_DICR (*(volatile uint32_t *)(PSX_IOBASE + 0x1F8010F4))
+
 #define GP0 (*(volatile uint32_t *)(PSX_IOBASE + 0x1F801810))
 #define GP1 (*(volatile uint32_t *)(PSX_IOBASE + 0x1F801814))
 

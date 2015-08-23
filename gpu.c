@@ -168,7 +168,8 @@ static void gpu_init(void)
 	gpu_send_control_gp1(0x03000000);
 
 	// Clear screen 
-	gpu_send_control_gp0(0x027D7D7D);
+	//gpu_send_control_gp0(0x027D7D7D);
+	gpu_send_control_gp0(0x02000000);
 	gpu_send_data(0x00000000);
 	gpu_send_data((320) | ((240)<<16));
 	screen_buffer = 0;
