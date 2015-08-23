@@ -20,6 +20,7 @@ int pclist_max = 0;
 
 mat4 mat_cam, mat_obj;
 mat4 mat_icam;
+mat4 mat_iplr;
 
 static void mesh_clear(void)
 {
@@ -81,7 +82,7 @@ static poly_chunk_s *mesh_alloc_poly(fixed priority)
 
 static void mesh_add_poly(const mesh_s *mesh, vec4 *v, int ic, int ii)
 {
-	int j;
+	int i, j;
 	const uint16_t *l = &mesh->i[ii];
 
 	// Get poly parameters
@@ -92,7 +93,7 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *v, int ic, int ii)
 	// Check facing + range
 	for(j = 0; j < vcount; j++)
 	{
-		if(v[l[j]][2] <= 0x0080) return;
+		if(v[l[j]][2] <= 0x0008) return;
 		if(v[l[j]][0] <= -1023) return;
 		if(v[l[j]][0] >=  1023) return;
 		if(v[l[j]][1] <= -1023) return;
@@ -100,12 +101,16 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *v, int ic, int ii)
 	}
 
 	// Check direction (2D cross product)
-	int dx0 = (v[l[1]][0] - v[l[0]][0]);
-	int dy0 = (v[l[1]][1] - v[l[0]][1]);
-	int dx1 = (v[l[2]][0] - v[l[0]][0]);
-	int dy1 = (v[l[2]][1] - v[l[0]][1]);
-	if(dx0*dy1 - dy0*dx1 < 0)
-		return;
+	// Abuse top bit for bidirectional flag
+	if((mesh->c[ic] & 0x80000000) == 0)
+	{
+		int dx0 = (v[l[1]][0] - v[l[0]][0]);
+		int dy0 = (v[l[1]][1] - v[l[0]][1]);
+		int dx1 = (v[l[2]][0] - v[l[0]][0]);
+		int dy1 = (v[l[2]][1] - v[l[0]][1]);
+		if(dx0*dy1 - dy0*dx1 < 0)
+			return;
+	}
 
 	// Calculate cross product
 	//vec4 fnorm;
@@ -114,14 +119,23 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *v, int ic, int ii)
 	// Calculate priority
 	//fixed priority = vec4_dot_3(&fnorm, mat_cam[3]) - vec4_dot_3(&fnorm, v[l[1]]);
 	// kinda bad priority, but it'll do for now
-	fixed priority = vec4_dot_3(&mat_cam[3], &v[l[1]]);
+	vec4 vsum;
+	for(j = 0; j < 3; j++)
+	{
+		vsum[j] = 0;
+		for(i = 0; i < vcount; i++)
+			vsum[j] += mesh->v[l[i]][j];
+
+		vsum[j] /= vcount;
+	}
+	fixed priority = -vec4_dot_3(&mat_icam[2], &vsum);
 
 	// Draw
 	poly_chunk_s *pc = mesh_alloc_poly(priority);
 	if(pc != NULL)
 	{
 		pc->len = 1+vcount;
-		pc->cmd_list[0] = mesh->c[ic];
+		pc->cmd_list[0] = mesh->c[ic] & 0x7FFFFFFF;
 		for(j = 0; j < vcount; j++)
 		{
 			pc->cmd_list[j+1] = (
@@ -157,8 +171,12 @@ static void mesh_draw(const mesh_s *mesh)
 	*/
 	for(i = 0; i < mesh->vc && i < 128; i++)
 	{
-		v[i][0] = v[i][0]*112/v[i][2];
-		v[i][1] = v[i][1]*112/v[i][2];
+		v[i][0] = v[i][0]*112/(v[i][2] > 1 ? v[i][2] : 1);
+		v[i][1] = v[i][1]*112/(v[i][2] > 1 ? v[i][2] : 1);
+		if(v[i][0] < -1023) v[i][0] = -1023;
+		if(v[i][0] >  1023) v[i][0] =  1023;
+		if(v[i][1] < -1023) v[i][1] = -1023;
+		if(v[i][1] >  1023) v[i][1] =  1023;
 	}
 
 	// Draw mesh

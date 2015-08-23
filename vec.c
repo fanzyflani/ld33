@@ -126,6 +126,14 @@ void mat4_translate_vec4(mat4 *M, vec4 *v)
 	(*M)[3][2] += (*v)[2];
 }
 
+void mat4_translate_vec4_neg(mat4 *M, vec4 *v)
+{
+	(*M)[3][0] -= (*v)[0];
+	(*M)[3][1] -= (*v)[1];
+	(*M)[3][2] -= (*v)[2];
+}
+
+
 void mat4_rotate_y(mat4 *M, fixed ang)
 {
 	int i;
@@ -156,6 +164,25 @@ void mat4_rotate_x(mat4 *M, fixed ang)
 	{
 		vec4 *sv = &(*M)[i];
 
+		fixed ty = (*sv)[1];
+		fixed tz = (*sv)[2];
+
+		(*sv)[1] = fixmul(ty, vc) - fixmul(tz, vs);
+		(*sv)[2] = fixmul(ty, vs) + fixmul(tz, vc);
+	}
+}
+
+void mat4_rotate_z(mat4 *M, fixed ang)
+{
+	int i;
+
+	fixed vs = fixsin(ang);
+	fixed vc = fixcos(ang);
+
+	for(i = 0; i < 4; i++)
+	{
+		vec4 *sv = &(*M)[i];
+
 		fixed tx = (*sv)[0];
 		fixed ty = (*sv)[1];
 
@@ -163,6 +190,7 @@ void mat4_rotate_x(mat4 *M, fixed ang)
 		(*sv)[1] = fixmul(tx, vs) + fixmul(ty, vc);
 	}
 }
+
 
 void mat4_apply_vec4(vec4 *v, mat4 *A)
 {
