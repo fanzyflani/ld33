@@ -16,6 +16,7 @@ typedef struct poly_chunk
 	//uint32_t _pad0[1];
 } poly_chunk_s;
 
+uint32_t *pcorder = NULL;
 poly_chunk_s *pclist = NULL;
 int pclist_num = 0;
 int pclist_max = 0;
@@ -33,11 +34,11 @@ static void mesh_clear(void)
 
 static int mesh_flush_sort_compar(const void *a, const void *b)
 {
-	poly_chunk_s *ap = (poly_chunk_s *)a;
-	poly_chunk_s *bp = (poly_chunk_s *)b;
+	poly_chunk_s *ap = (poly_chunk_s *)&pclist[(uint32_t *)a - pcorder];
+	poly_chunk_s *bp = (poly_chunk_s *)&pclist[(uint32_t *)b - pcorder];
 
-	fixed apd = ap->pts[0][2];
-	fixed bpd = bp->pts[0][2];
+	fixed apd = ap->priority;
+	fixed bpd = bp->priority;
 
 	return bpd-apd;
 }
@@ -48,14 +49,15 @@ static void mesh_flush(int do_sort)
 
 	// Sort
 	if(do_sort)
-		qsort(pclist, pclist_num, sizeof(poly_chunk_s), mesh_flush_sort_compar);
+		qsort(pcorder, pclist_num, sizeof(uint32_t), mesh_flush_sort_compar);
 
 	// Draw
 	for(i = 0; i < pclist_num; i++)
 	{
-		gpu_send_control_gp0(pclist[i].cmd_list[0]);
-		for(j = 1; j < pclist[i].len; j++)
-			gpu_send_data(pclist[i].cmd_list[j]);
+		int ri = pcorder[i];
+		gpu_send_control_gp0(pclist[ri].cmd_list[0]);
+		for(j = 1; j < pclist[ri].len; j++)
+			gpu_send_data(pclist[ri].cmd_list[j]);
 	}
 
 	// Clear
@@ -80,9 +82,11 @@ static poly_chunk_s *mesh_alloc_poly()
 			pclist_max = idx+1;
 
 		pclist = realloc(pclist, pclist_max*sizeof(poly_chunk_s));
+		pcorder = realloc(pcorder, pclist_max*sizeof(uint32_t));
 	}
 
 	// Return!
+	pcorder[idx] = idx;
 	return &pclist[idx];
 }
 
@@ -146,13 +150,19 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii)
 		pc->len = 1+vcount;
 		vec4_copy(&pc->fnorm, &fnorm);
 		pc->cmd_list[0] = mesh->c[ic] & 0x7FFFFFFF;
+		fixed zsum = 0;
+
 		for(j = 0; j < vcount; j++)
 		{
 			vec4_copy((vec4 *)&pc->pts[j], (vec4 *)&vbase[l[j]]);
+			zsum += pc->pts[j][2];
+
 			pc->cmd_list[j+1] = (
 				(vp[l[j]][0]&0xFFFF) +
 				(vp[l[j]][1]<<16));
 		}
+
+		pc->priority = zsum/vcount;
 	}
 }
 
