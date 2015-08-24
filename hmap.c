@@ -1,6 +1,6 @@
 #define HMAP_POW 7
 #define HMAP_L (1<<(HMAP_POW))
-#define VISRANGE 6
+#define VISRANGE 5
 static fixed hmap[HMAP_L][HMAP_L];
 
 static int hmap_visx = 0;

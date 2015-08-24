@@ -124,7 +124,7 @@ static void game_update_frame(void)
 			(((x^z^xoffs^zoffs)&1) == 0 ? 0x20003F00 : 0x20005F00);
 	}
 	mworld_c[2*i] = 0;
-	mesh_draw(&mworld, 0);
+	mesh_draw(&mworld, MS_NOPRIO);
 	mesh_flush(0); // faster with sort disabled, and negligible graphical effect
 	//mesh_clear();
 #endif
@@ -135,9 +135,13 @@ static void game_update_frame(void)
 
 	mesh_flush(1);
 
+	// shots shots shots shots shots shots shots shots everybody
+	shot_draw();
+	mesh_flush(0);
+
 	// buildings
-	for(i = 0; i < 3; i++)
-		bldg_draw(&bldg_tests[i]);
+	for(i = 0; i < bldg_num; i++)
+		bldg_draw(&bldg_list[i]);
 
 	// jets
 	jet_draw(&jet_test, 0);
@@ -157,8 +161,8 @@ static void game_update_frame(void)
 	screen_print(16, 16+8*2, 0x7F7F7F, update_str_buf);
 	//sprintf(update_str_buf, "pc=%i %p %p %p", pclist_max, pclist, pcorder, pcprio);
 	//screen_print(16, 16+8*3, 0x7F7F7F, update_str_buf);
-	sprintf(update_str_buf, "pp=%08X %08X", player.pos[0], player.pos[2]);
-	screen_print(16, 16+8*4, 0x7F7F7F, update_str_buf);
+	//sprintf(update_str_buf, "shot=%4i %4i", shot_head, shot_tail);
+	//screen_print(16, 16+8*4, 0x7F7F7F, update_str_buf);
 	//sprintf(update_str_buf, "halp=%08X", fixrand1s());
 	//screen_print(16, 16+8*5, 0x7F7F7F, update_str_buf);
 
@@ -193,11 +197,17 @@ static void game_update_frame(void)
 	if((pad_data & PAD_R1) != 0)
 		applied_vx += 1;
 	
+	player.mgun_fire = ((pad_data & PAD_S) != 0);
+
 	applied_rx <<= 9;
 	applied_ry <<= 9;
 
+	// Update jets
 	jet_update(&player, applied_tspd, applied_rx, applied_ry, applied_vx);
-	jet_update(&jet_test, 1<<11, 0, 1<<6, 0);
+	jet_update(&jet_test, 1<<13, 0, 1<<7, 0);
+
+	// Update shots
+	shot_update();
 
 	// Wrap player pos
 	player.pos[0] += (1<<(18+HMAP_POW-1));

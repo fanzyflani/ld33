@@ -123,3 +123,27 @@ mesh_s poly_jet1 = {
 	poly_jet1_c,
 };
 
+//
+// SHOT_MGUN
+//
+const static vec3 poly_shot_mgun_v[] = {
+	{ 0x00000,  0x02000, 0x20000},
+	{-0x03000,  0x02000, 0x00000},
+	{ 0x03000,  0x02000, 0x00000},
+
+};
+const static uint16_t poly_shot_mgun_i[] = {
+	0, 1, 2,
+};
+const static uint32_t poly_shot_mgun_c[] = {
+	0xA0FFFFFF,
+
+	0
+};
+mesh_s poly_shot_mgun = {
+	8,
+	poly_shot_mgun_v,
+	poly_shot_mgun_i,
+	poly_shot_mgun_c,
+};
+

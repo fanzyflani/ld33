@@ -35,6 +35,7 @@ volatile void *_current_brk = (volatile void *)end;
 #include "dat/mesh.c"
 
 #include "bldg.c"
+#include "shot.c"
 #include "jet.c"
 
 #include "game.c"

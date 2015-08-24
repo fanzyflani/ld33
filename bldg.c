@@ -4,7 +4,8 @@ typedef struct bldg
 	mesh_s *mesh;
 } bldg_s;
 
-bldg_s bldg_tests[3] = {
+int bldg_num = 3;
+bldg_s bldg_list[3] = {
 	{{0, 0, 0x180000}, &poly_building},
 	{{0x50000, 0, 0x100000}, &poly_tree1},
 	{{-0x28000, 0, 0x130000}, &poly_tree1},

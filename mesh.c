@@ -2,6 +2,8 @@
 //define USE_DMA
 
 #define MS_SHADOW (1<<0)
+#define MS_FLASH (1<<1)
+#define MS_NOPRIO (1<<2)
 
 typedef struct mesh
 {
@@ -33,7 +35,6 @@ int pclist_max = POLY_MAX;
 
 mat4 mat_cam, mat_obj, mat_obj_cam;
 mat4 mat_icam;
-mat4 mat_iplr;
 
 #define VTX_MAX (400)
 vec4 vbase[VTX_MAX];
@@ -201,22 +202,37 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii, int flag
 			pc->cmd_list[0] |= 0x02000000;
 			pc->cmd_list[0] &= 0xFF000000;
 		}
+		else if((flags & MS_FLASH) != 0)
+		{
+			pc->cmd_list[0] |= 0x00FFFFFF;
+		}
 		fixed zsum = 0;
 
-		for(i = 0; i < vcount; i++)
+		if((flags & MS_NOPRIO) == 0)
 		{
-			//vec4_copy((vec4 *)&pc->pts[i], (vec4 *)&vbase[l[i]]);
-			pc->pts[i][0] = vbase[l[i]][0];
-			pc->pts[i][1] = vbase[l[i]][1];
-			pc->pts[i][2] = vbase[l[i]][2];
-			zsum += pc->pts[i][2];
+			for(i = 0; i < vcount; i++)
+			{
+				//vec4_copy((vec4 *)&pc->pts[i], (vec4 *)&vbase[l[i]]);
+				pc->pts[i][0] = vbase[l[i]][0];
+				pc->pts[i][1] = vbase[l[i]][1];
+				pc->pts[i][2] = vbase[l[i]][2];
+				zsum += pc->pts[i][2];
 
-			pc->cmd_list[i+1] = (
-				(vp[l[i]][0]&0xFFFF) +
-				(vp[l[i]][1]<<16));
+				pc->cmd_list[i+1] = (
+					(vp[l[i]][0]&0xFFFF) +
+					(vp[l[i]][1]<<16));
+			}
+
+			pcprio[pcidx] = zsum/vcount;
+		} else {
+			for(i = 0; i < vcount; i++)
+			{
+				pc->cmd_list[i+1] = (
+					(vp[l[i]][0]&0xFFFF) +
+					(vp[l[i]][1]<<16));
+			}
+			pcprio[pcidx] = 0;
 		}
-
-		pcprio[pcidx] = zsum/vcount;
 	}
 }
 
