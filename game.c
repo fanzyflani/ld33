@@ -71,6 +71,8 @@ static void game_update_frame(void)
 	fixed hdist = 0xA0000;
 	int xoffs = ((player.pos[0] + fixmul(hdist, mat_icam[2][0]))>>18)-VISRANGE;
 	int zoffs = ((player.pos[2] + fixmul(hdist, mat_icam[2][2]))>>18)-VISRANGE;
+	hmap_visx = xoffs+VISRANGE;
+	hmap_visz = zoffs+VISRANGE;
 	for(x = 0, i = 0; x < VISRANGE*2+2; x++)
 	for(z = 0; z < VISRANGE*2+2; z++, i++)
 	{

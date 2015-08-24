@@ -21,6 +21,16 @@ jet_s player = {
 
 static void jet_draw(jet_s *jet, int is_shadow)
 {
+	// Check if in view dist
+	int hx = (jet->pos[0]>>18);
+	int hz = (jet->pos[2]>>18);
+	hx -= hmap_visx;
+	hz -= hmap_visz;
+	if(hx < 0) hx = -hx;
+	if(hz < 0) hz = -hz;
+
+	if(hx > VISRANGE || hz > VISRANGE) return;
+
 	mat4_load_identity(&mat_obj);
 	mat4_rotate_z(&mat_obj, jet->tilt_y);
 	mat4_rotate_x(&mat_obj, -jet->rx);

@@ -12,7 +12,15 @@ bldg_s bldg_tests[3] = {
 
 static void bldg_draw(const bldg_s *bldg)
 {
-	// TODO: check if in view dist
+	// Check if in view dist
+	int hx = (bldg->pos[0]>>18);
+	int hz = (bldg->pos[2]>>18);
+	hx -= hmap_visx;
+	hz -= hmap_visz;
+	if(hx < 0) hx = -hx;
+	if(hz < 0) hz = -hz;
+
+	if(hx > VISRANGE || hz > VISRANGE) return;
 
 	mat4_load_identity(&mat_obj);
 	mat4_translate_vec3(&mat_obj, (vec3 *)&bldg->pos);
