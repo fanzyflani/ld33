@@ -8,8 +8,13 @@ fixed player_tspd = 1<<13;
 
 #define HMAP_POW 7
 #define HMAP_L (1<<(HMAP_POW))
-#define VISRANGE 4
+#define VISRANGE 5
 static fixed hmap[HMAP_L][HMAP_L];
+
+typedef struct bldg
+{
+
+} bldg_s;
 
 static fixed hmap_get(fixed x, fixed z)
 {
@@ -115,10 +120,10 @@ static void game_update_frame(void)
 	{
 		// Generate faces
 		// TODO: order properly and allow splits
-		mworld_i[i*4+0] = (z+0)+(x+0)*10;
-		mworld_i[i*4+1] = (z+1)+(x+0)*10;
-		mworld_i[i*4+2] = (z+0)+(x+1)*10;
-		mworld_i[i*4+3] = (z+1)+(x+1)*10;
+		mworld_i[i*4+0] = (z+0)+(x+0)*(VISRANGE*2+2);
+		mworld_i[i*4+1] = (z+1)+(x+0)*(VISRANGE*2+2);
+		mworld_i[i*4+2] = (z+0)+(x+1)*(VISRANGE*2+2);
+		mworld_i[i*4+3] = (z+1)+(x+1)*(VISRANGE*2+2);
 		mworld_c[i] = (((x^z^xoffs^zoffs)&1) == 0 ? 0xA8003F00 : 0xA8005F00);
 	}
 	mworld_c[i] = 0;
@@ -127,21 +132,33 @@ static void game_update_frame(void)
 	//mesh_clear();
 #endif
 
+	// shadows
+	mat4_load_identity(&mat_obj);
+	mat4_rotate_z(&mat_obj, player_tilt_y);
+	mat4_rotate_x(&mat_obj, -player_rx);
+	mat4_rotate_y(&mat_obj, -player_ry);
+	mat4_translate_vec4(&mat_obj, &player_pos);
+	mat4_translate_imm3(&mat_obj,
+		0, hmap_get(player_pos[0], player_pos[2]) - player_pos[1], 0);
+	mesh_draw(&poly_ship1, MS_SHADOW);
+
+	mesh_flush(1);
+
 	// buildings
 	mat4_load_identity(&mat_obj);
-	mat4_translate_imm3(&mat_obj, 0, 0, 0x180000);
+	mat4_translate_imm3(&mat_obj, 0, hmap_get(0, 0x180000), 0x180000);
 	mesh_draw(&poly_building, 0);
 
 	mat4_load_identity(&mat_obj);
-	mat4_translate_imm3(&mat_obj, 0x50000, 0, 0x100000);
+	mat4_translate_imm3(&mat_obj, 0x50000, hmap_get(0x50000, 0x100000), 0x100000);
 	mesh_draw(&poly_building, 0);
 
 	mat4_load_identity(&mat_obj);
-	mat4_translate_imm3(&mat_obj, -0x28000, 0, 0x130000);
+	mat4_translate_imm3(&mat_obj, -0x28000, hmap_get(-0x28000, 0x130000), 0x130000);
 	mesh_draw(&poly_tree1, 0);
 
 	mat4_load_identity(&mat_obj);
-	mat4_translate_imm3(&mat_obj, 0x18000, -0x20000, 0x150000);
+	mat4_translate_imm3(&mat_obj, 0x18000, -0x20000 + hmap_get(0x18000, 0x150000), 0x150000);
 	mesh_draw(&poly_ship1, 0);
 
 	// player
@@ -152,10 +169,6 @@ static void game_update_frame(void)
 	mat4_rotate_y(&mat_obj, -player_ry);
 	mat4_translate_vec4(&mat_obj, &player_pos);
 	mesh_draw(&poly_ship1, 0);
-
-	mat4_translate_imm3(&mat_obj,
-		0, hmap_get(player_pos[0], player_pos[2]) - player_pos[1], 0);
-	mesh_draw(&poly_ship1, MS_SHADOW);
 
 	// finish drawing
 	mesh_flush(1);
@@ -222,6 +235,14 @@ static void game_update_frame(void)
 	player_pos[0] += fixmul(mat_iplr[2][0], mvspd);
 	player_pos[1] += fixmul(mat_iplr[2][1], mvspd);
 	player_pos[2] += fixmul(mat_iplr[2][2], mvspd);
+
+	// Wrap player pos
+	player_pos[0] += (1<<(18+HMAP_POW-1));
+	player_pos[2] += (1<<(18+HMAP_POW-1));
+	player_pos[0] &= ((1<<(18+HMAP_POW))-1);
+	player_pos[2] &= ((1<<(18+HMAP_POW))-1);
+	player_pos[0] -= (1<<(18+HMAP_POW-1));
+	player_pos[2] -= (1<<(18+HMAP_POW-1));
 }
 
 void game_init(void)

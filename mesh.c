@@ -35,7 +35,7 @@ mat4 mat_cam, mat_obj, mat_obj_cam;
 mat4 mat_icam;
 mat4 mat_iplr;
 
-#define VTX_MAX (384)
+#define VTX_MAX (256)
 vec4 vbase[VTX_MAX];
 
 static void mesh_clear(void)
