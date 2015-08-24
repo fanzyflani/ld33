@@ -106,6 +106,60 @@ static void jet_update(jet_s *jet)
 		applied_ry <<= 9;
 
 	} else switch(jet->ai_mode) {
+		case JAI_HUNT_MAIN: {
+			fixed dx = player->pos[0] - jet->pos[0];
+			fixed dy = player->pos[1] - jet->pos[1];
+			fixed dz = player->pos[2] - jet->pos[2];
+
+			// Calculate y-dot to work out best ry
+			const fixed rotsy = 1<<8;
+			fixed radj = fixrand1s()>>(16-8);
+			fixed ys = fixsin(jet->ry + radj);
+			fixed yc = fixcos(jet->ry + radj);
+			fixed ysl = fixsin(jet->ry + radj - rotsy);
+			fixed ycl = fixcos(jet->ry + radj - rotsy);
+			fixed ysr = fixsin(jet->ry + radj + rotsy);
+			fixed ycr = fixcos(jet->ry + radj + rotsy);
+			fixed dot = fixmulf(dz, yc) + fixmulf(dx, ys);
+			fixed dotl = fixmulf(dz, ycl) + fixmulf(dx, ysl);
+			fixed dotr = fixmulf(dz, ycr) + fixmulf(dx, ysr);
+
+			// Go towards player
+			if(dotl > dot && dotl > dotr)
+			{
+				applied_ry = -rotsy;
+			} else if(dotr > dot) {
+				applied_ry =  rotsy;
+			}
+
+			// Calculate x-dot to work out best rx
+			const fixed rotsx = 1<<8;
+			fixed xs = fixsin(jet->rx);
+			fixed xc = fixcos(jet->rx);
+			fixed xsn = fixsin(jet->rx - rotsx);
+			fixed xsp = fixsin(jet->rx + rotsx);
+			fixed dotx = fixmulf(dy, xs);
+			fixed dotxn = fixmulf(dy, xsn);
+			fixed dotxp = fixmulf(dy, xsp);
+
+			// Go towards player - DO NOT FLY UPSIDE DOWN
+			if(dotxn > dotx && dotxn > dotxp && jet->rx > -0x3000)
+			{
+				applied_rx = -rotsx;
+			} else if(dotxp > dotx && jet->rx < 0x3000) {
+				applied_rx =  rotsx;
+			}
+
+			// Work out if we should fire
+			vec4 dv = {dx, dy, dz, 0x00000};
+			vec4 av = {fixmulf(ys, xc), xs, fixmulf(yc, xc), 0x00000};
+			vec4_normalize_3(&dv);
+			fixed dotfire = vec4_dot_3(&dv, &av);
+			jet->mgun_fire = (dotfire >= 0xD000);
+
+			// TODO: more stuff
+		} break;
+
 		case JAI_LTURN7:
 			applied_ry = -1<<7;
 			break;

@@ -281,9 +281,10 @@ int main(void)
 		TMR_n_COUNT(1) = 0;
 		for(;;)
 		{
+			const int tmr_gap = 14;
 			//while(vblank_triggered == 0) {}
-			while(TMR_n_COUNT(1) < 0x80) {}
-			while(TMR_n_COUNT(1) >= 0x80)
+			while(TMR_n_COUNT(1) < tmr_gap) {}
+			while(TMR_n_COUNT(1) >= tmr_gap)
 			{
 				// work around a bug in PCSXR
 				if(TMR_n_COUNT(1) >= (pcsxr_detected ? 314 : 350))

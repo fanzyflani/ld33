@@ -222,8 +222,8 @@ void game_init(void)
 
 	jet_count = 0;
 	player = &jet_list[jet_add(0, 0, 0, 50, 1, JAI_PLAYER)];
-	jet_add(0x18000, -0x60000, 0x150000, 50, 2, JAI_LTURN7);
-	jet_add(0x18000, -0x60000, 0x190000, 50, 2, JAI_RTURN7);
+	jet_add(0x18000, -0x60000, 0x150000, 50, 2, JAI_HUNT_MAIN);
+	jet_add(0x18000, -0x60000, 0x190000, 50, 2, JAI_HUNT_MAIN);
 
 	bldg_count = 0;
 	bldg_add( 0x00000, 0x180000, &poly_building);

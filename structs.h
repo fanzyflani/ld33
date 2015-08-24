@@ -8,6 +8,8 @@ typedef enum jet_ai
 	JAI_IDLE,
 	JAI_PLAYER,
 
+	JAI_HUNT_MAIN,
+
 	JAI_LTURN7,
 	JAI_RTURN7,
 } jet_ai_e;
