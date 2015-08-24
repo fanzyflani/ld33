@@ -35,7 +35,7 @@ mat4 mat_cam, mat_obj, mat_obj_cam;
 mat4 mat_icam;
 mat4 mat_iplr;
 
-#define VTX_MAX (256)
+#define VTX_MAX (400)
 vec4 vbase[VTX_MAX];
 
 static void mesh_clear(void)
@@ -158,10 +158,12 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii, int flag
 	for(j = 0; j < vcount; j++)
 	{
 		if(vp[l[j]][2] <= 0x0008) return;
+		/*
 		if(vp[l[j]][0] <= -1023) return;
 		if(vp[l[j]][0] >=  1023) return;
 		if(vp[l[j]][1] <= -1023) return;
 		if(vp[l[j]][1] >=  1023) return;
+		*/
 		/*
 		if(vp[l[j]][0] <= -160) return;
 		if(vp[l[j]][0] >=  160) return;
@@ -251,10 +253,20 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 		vp[i][0] = v[i][0]*120/(v[i][2] > 1 ? v[i][2] : 1);
 		vp[i][1] = v[i][1]*120/(v[i][2] > 1 ? v[i][2] : 1);
 		vp[i][2] = v[i][2];
+		/*
 		if(vp[i][0] < -1023) vp[i][0] = -1023;
 		if(vp[i][0] >  1023) vp[i][0] =  1023;
 		if(vp[i][1] < -1023) vp[i][1] = -1023;
 		if(vp[i][1] >  1023) vp[i][1] =  1023;
+		*/
+		//if(vp[l[j]][2] <= 0x0008) return;
+
+		// mark as "destroy this primitive" early
+		// saves on the number of checks we have to do
+		if(vp[i][0] <= -1023) vp[i][2] = 1;
+		else if(vp[i][0] >=  1023) vp[i][2] = 1;
+		else if(vp[i][1] <= -1023) vp[i][2] = 1;
+		else if(vp[i][1] >=  1023) vp[i][2] = 1;
 	}
 
 	// Draw mesh
