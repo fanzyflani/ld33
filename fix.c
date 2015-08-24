@@ -123,3 +123,14 @@ static fixed fixcos(fixed ang)
 	return fixsin(ang + (FM_PI/2));
 }
 
+uint32_t randseed = 12342135; // keyboard mash
+static fixed fixrand1s(void)
+{
+	int r = (randseed>>7)&0x1FFFF;
+	randseed *= 1103515245U;
+	randseed += 12345U;
+	randseed &= 0x7FFFFFFFU;
+	r -= 0x10000;
+	return (fixed)r;
+}
+

@@ -1,6 +1,11 @@
+// disabled because of display corruption
+//define USE_DMA
+
+#define MS_SHADOW (1<<0)
+
 typedef struct mesh
 {
-	const uint32_t vc;
+	uint32_t vc;
 	const vec3 *v;
 	const uint16_t *i;
 	const uint32_t *c;
@@ -8,37 +13,56 @@ typedef struct mesh
 
 typedef struct poly_chunk
 {
-	fixed priority;
 	int len;
+	uint32_t dma_chain;
 	uint32_t cmd_list[1+4];
-	vec4 pts[4];
-	vec4 fnorm;
+	vec3 pts[4];
+	//vec4 fnorm;
 	//uint32_t _pad0[1];
 } poly_chunk_s;
 
-uint32_t *pcorder = NULL;
-poly_chunk_s *pclist = NULL;
+//int32_t *pcorder = NULL;
+//fixed *pcprio = NULL;
+//poly_chunk_s *pclist = NULL;
+#define POLY_MAX 2048
+int32_t pcorder[POLY_MAX];
+fixed pcprio[POLY_MAX];
+poly_chunk_s pclist[POLY_MAX];
 int pclist_num = 0;
-int pclist_max = 0;
+int pclist_max = POLY_MAX;
 
-mat4 mat_cam, mat_obj;
+mat4 mat_cam, mat_obj, mat_obj_cam;
 mat4 mat_icam;
 mat4 mat_iplr;
 
-vec4 vbase[128];
+#define VTX_MAX (384)
+vec4 vbase[VTX_MAX];
 
 static void mesh_clear(void)
 {
 	pclist_num = 0;
+
+#ifdef USE_DMA
+	// Wait for DMA
+	while((DMA_n_CHCR(2) & 0x01000000) != 0) {}
+	while((GP1 & 0x10000000) == 0) {}
+	//while((GP1 & 0x04000000) == 0) {}
+
+	// Wait a bit longer to prevent breakages
+	//volatile int lag;
+	//for(lag = 0; lag < 0x300; lag++) {};
+
+	// Disable DMA
+	gpu_send_control_gp1(0x04000001);
+	gpu_send_control_gp1(0x01000000);
+#endif
+
 }
 
 static int mesh_flush_sort_compar(const void *a, const void *b)
 {
-	poly_chunk_s *ap = (poly_chunk_s *)&pclist[(uint32_t *)a - pcorder];
-	poly_chunk_s *bp = (poly_chunk_s *)&pclist[(uint32_t *)b - pcorder];
-
-	fixed apd = ap->priority;
-	fixed bpd = bp->priority;
+	fixed apd = pcprio[(int32_t *)a - pcorder];
+	fixed bpd = pcprio[(int32_t *)b - pcorder];
 
 	return bpd-apd;
 }
@@ -55,17 +79,43 @@ static void mesh_flush(int do_sort)
 	for(i = 0; i < pclist_num; i++)
 	{
 		int ri = pcorder[i];
+
+#ifdef USE_DMA
+		// DMA
+		uint32_t nptr = (i+1 < pclist_num
+			? (uint32_t )&pclist[pcorder[i+1]].dma_chain
+			: 0xFFFFFF)
+				& 0xFFFFFF;
+
+		pclist[ri].dma_chain = ((pclist[ri].len+1)<<24) | nptr;
+
+#else
+		// FIFO
 		gpu_send_control_gp0(pclist[ri].cmd_list[0]);
 		for(j = 1; j < pclist[ri].len; j++)
 			gpu_send_data(pclist[ri].cmd_list[j]);
+#endif
 	}
+
+#ifdef USE_DMA
+	// Send DMA
+	while((GP1 & 0x10000000) == 0) {}
+	while((GP1 & 0x04000000) == 0) {}
+	gpu_send_control_gp1(0x04000002);
+	gpu_send_control_gp1(0x01000000);
+	DMA_n_CHCR(2) = 0x01000401;
+	DMA_DPCR = (DMA_DPCR & ~0xF00) | 0x800;
+	DMA_n_MADR(2) = ((uint32_t)&pclist[pcorder[0]].dma_chain) & 0xFFFFFF;
+	DMA_n_BCR(2) = 0;
+	DMA_n_CHCR(2) = 0x01000401;
+#endif
 
 	// Clear
 	mesh_clear();
 
 }
 
-static poly_chunk_s *mesh_alloc_poly()
+static int mesh_alloc_poly()
 {
 	// Get index
 	int idx = pclist_num++;
@@ -81,16 +131,20 @@ static poly_chunk_s *mesh_alloc_poly()
 		if(pclist_max < idx+1)
 			pclist_max = idx+1;
 
+		/*
 		pclist = realloc(pclist, pclist_max*sizeof(poly_chunk_s));
-		pcorder = realloc(pcorder, pclist_max*sizeof(uint32_t));
+		pcorder = realloc(pcorder, pclist_max*sizeof(int32_t));
+		pcprio = realloc(pcprio, pclist_max*sizeof(fixed));
+		*/
 	}
 
 	// Return!
 	pcorder[idx] = idx;
-	return &pclist[idx];
+	//return &pclist[idx];
+	return idx;
 }
 
-static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii)
+static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii, int flags)
 {
 	int i, j;
 	const uint16_t *l = &mesh->i[ii];
@@ -108,6 +162,12 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii)
 		if(vp[l[j]][0] >=  1023) return;
 		if(vp[l[j]][1] <= -1023) return;
 		if(vp[l[j]][1] >=  1023) return;
+		/*
+		if(vp[l[j]][0] <= -160) return;
+		if(vp[l[j]][0] >=  160) return;
+		if(vp[l[j]][1] <= -120) return;
+		if(vp[l[j]][1] >=  120) return;
+		*/
 	}
 
 	// Check direction (2D cross product)
@@ -123,38 +183,30 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii)
 	}
 
 	// Calculate cross product
-	vec4 fnorm;
-	vec4_cross_origin(&fnorm, &vbase[l[0]], &vbase[l[1]], &vbase[l[2]]);
-
-	// Calculate priority
-	//fixed priority = vec4_dot_3(&fnorm, mat_cam[3]) - vec4_dot_3(&fnorm, v[l[1]]);
-	// kinda bad priority, but it'll do for now
-	/*
-	vec4 vsum;
-	for(j = 0; j < 3; j++)
-	{
-		vsum[j] = 0;
-		for(i = 0; i < vcount; i++)
-			vsum[j] += mesh->v[l[i]][j];
-
-		vsum[j] /= vcount;
-	}
-	fixed priority = -vec4_dot_3(&mat_icam[2], &vsum);
-	*/
-	// priority will be handled on a case-by-case basis
+	//vec4 fnorm;
+	//vec4_cross_origin(&fnorm, &vbase[l[0]], &vbase[l[1]], &vbase[l[2]]);
 
 	// Draw
-	poly_chunk_s *pc = mesh_alloc_poly();
-	if(pc != NULL)
+	int pcidx = mesh_alloc_poly();
+	if(pcidx >= 0)
 	{
+		poly_chunk_s *pc = &pclist[pcidx];
 		pc->len = 1+vcount;
-		vec4_copy(&pc->fnorm, &fnorm);
+		//vec4_copy(&pc->fnorm, &fnorm);
 		pc->cmd_list[0] = mesh->c[ic] & 0x7FFFFFFF;
+		if((flags & MS_SHADOW) != 0)
+		{
+			pc->cmd_list[0] |= 0x02000000;
+			pc->cmd_list[0] &= 0xFF000000;
+		}
 		fixed zsum = 0;
 
 		for(j = 0; j < vcount; j++)
 		{
-			vec4_copy((vec4 *)&pc->pts[j], (vec4 *)&vbase[l[j]]);
+			//vec4_copy((vec4 *)&pc->pts[j], (vec4 *)&vbase[l[j]]);
+			pc->pts[j][0] = vbase[l[j]][0];
+			pc->pts[j][1] = vbase[l[j]][1];
+			pc->pts[j][2] = vbase[l[j]][2];
 			zsum += pc->pts[j][2];
 
 			pc->cmd_list[j+1] = (
@@ -162,27 +214,32 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii)
 				(vp[l[j]][1]<<16));
 		}
 
-		pc->priority = zsum/vcount;
+		pcprio[pcidx] = zsum/vcount;
 	}
 }
 
-static void mesh_draw(const mesh_s *mesh)
+static void mesh_draw(const mesh_s *mesh, int flags)
 {
 	volatile int lag;
 	int i, j;
 
+	// Combine matrices
+	//mat4_mul_mat4_mat4(&mat_obj_cam, &mat_cam, &mat_obj);
+	mat4_mul_mat4_mat4(&mat_obj_cam, &mat_obj, &mat_cam);
+
 	// Build points
 	vec4 *v = vbase;
-	static vec4 vp[128];
+	static vec4 vp[VTX_MAX];
 	int iv, ii, ic;
-	for(i = 0; i < mesh->vc && i < 128; i++)
+	for(i = 0; i < mesh->vc && i < VTX_MAX; i++)
 	{
 		v[i][0] = mesh->v[i][0];
 		v[i][1] = mesh->v[i][1];
 		v[i][2] = mesh->v[i][2];
 		v[i][3] = 0x10000;
-		mat4_apply_vec4(&v[i], &mat_obj);
-		mat4_apply_vec4(&v[i], &mat_cam);
+		mat4_apply_vec4(&v[i], &mat_obj_cam);
+		//mat4_apply_vec4(&v[i], &mat_obj);
+		//mat4_apply_vec4(&v[i], &mat_cam);
 	}
 
 	// Light + project points
@@ -191,10 +248,10 @@ static void mesh_draw(const mesh_s *mesh)
 	vec4 lite_dst = {0x2000, -0xA000, -0xA000, 0};
 	vec4_normalize_3(&lite_dst);
 	*/
-	for(i = 0; i < mesh->vc && i < 128; i++)
+	for(i = 0; i < mesh->vc && i < VTX_MAX; i++)
 	{
-		vp[i][0] = v[i][0]*112/(v[i][2] > 1 ? v[i][2] : 1);
-		vp[i][1] = v[i][1]*112/(v[i][2] > 1 ? v[i][2] : 1);
+		vp[i][0] = v[i][0]*120/(v[i][2] > 1 ? v[i][2] : 1);
+		vp[i][1] = v[i][1]*120/(v[i][2] > 1 ? v[i][2] : 1);
 		vp[i][2] = v[i][2];
 		if(vp[i][0] < -1023) vp[i][0] = -1023;
 		if(vp[i][0] >  1023) vp[i][0] =  1023;
@@ -207,7 +264,7 @@ static void mesh_draw(const mesh_s *mesh)
 	for(ic = 0, ii = 0; mesh->c[ic] != 0;
 		ii += ((mesh->c[ic++] & 0x08000000) != 0 ? 4 : 3))
 	{
-		mesh_add_poly(mesh, vp, ic, ii);
+		mesh_add_poly(mesh, vp, ic, ii, flags);
 	}
 }
 

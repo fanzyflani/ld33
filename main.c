@@ -37,14 +37,16 @@ void *sbrk(intptr_t diff)
 {
 	int i;
 
-	volatile void *proposed_brk = _current_brk + diff;
+	volatile void *proposed_brk = _current_brk + diff + 0x20000; // extra alloc makes newlib behave
 	if(proposed_brk < (void *)end)
 		return NULL;
-	if(proposed_brk >= (void *)0x8F1E0000)
+	if(proposed_brk >= (void *)0x801E0000)
 		return NULL;
 	
 	if(_current_brk < proposed_brk)
 		memset((void *)_current_brk, 0, proposed_brk - _current_brk);
+	if(_current_brk > proposed_brk)
+		memset((void *)proposed_brk, 0, _current_brk - proposed_brk);
 	
 	_current_brk = proposed_brk;
 	return (void *)_current_brk;

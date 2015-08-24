@@ -2,6 +2,13 @@ typedef fixed vec3[4];
 typedef fixed vec4[4];
 typedef vec4 mat4[4];
 
+void vec3_set(vec3 *v, fixed x, fixed y, fixed z)
+{
+	(*v)[0] = x;
+	(*v)[1] = y;
+	(*v)[2] = z;
+}
+
 void vec4_copy(vec4 *v, vec4 *a)
 {
 	memcpy((*v), (*a), sizeof(vec4));
@@ -87,7 +94,7 @@ void mat4_mul_mat4_mat4(mat4 *M, mat4 *A, mat4 *B)
 		for(k = 0; k < 4; k++)
 			sum += fixmul((*A)[i][k], (*B)[k][j]);
 
-		(*M)[i][j] = 0;
+		(*M)[i][j] = sum;
 	}
 }
 
@@ -202,7 +209,7 @@ void mat4_apply_vec4(vec4 *v, mat4 *A)
 	{
 		fixed sum = 0;
 		for(j = 0; j < 4; j++)
-			sum += fixmul((*A)[j][i], sv[j]);
+			sum += fixmulf((*A)[j][i], sv[j]);
 
 		(*v)[i] = sum;
 	}
