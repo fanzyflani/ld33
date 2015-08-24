@@ -26,7 +26,7 @@ static void game_update_frame(void)
 	mat4_rotate_y(&mat_icam, -player->ry);
 
 	// Calculate sky
-	int sky = 0;//((fixsin(-player->rx)*120)>>16);
+	int sky = 40;//((fixsin(-player->rx)*120)>>16);
 	int skyswap = 0;//(fixcos(-player->rx) <= 0);
 	if(skyswap)
 		sky = -sky;
@@ -180,6 +180,10 @@ static void game_update_frame(void)
 	fixed applied_ry = 0;
 	fixed applied_vx = 0;
 	fixed applied_tspd = 1<<13;
+
+	// TEST: Kill player on SELECT
+	if((pad_data & PAD_SELECT) != 0 && player->health > 0)
+		player->health = 0;
 
 	if((pad_data & PAD_X) != 0)
 		applied_tspd = 1<<15;

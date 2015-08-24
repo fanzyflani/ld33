@@ -66,7 +66,7 @@ static void jet_update(jet_s *jet,
 {
 	mat4 jmat;
 
-	if(jet->crashed)
+	if(jet->crashed > 0)
 	{
 		// TODO: release smoke
 		return;
