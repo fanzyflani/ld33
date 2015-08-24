@@ -11,7 +11,7 @@ export ISO_NAME=gm-ld33
 echo cc && mipsel-none-elf-gcc -c -fomit-frame-pointer -fno-stack-protector -G1 -O3 -msoft-float -nostdlib -mips1 -march=3000 -o obj/main.o main.c && \
 echo as && mipsel-none-elf-as -G1 -o obj/head.o head.S && \
 echo ld && mipsel-none-elf-ld -T link.ld -o obj/${EXE_NAME}.elf obj/head.o obj/main.o -L/usr/local/mipsel-none-elf/lib/soft-float/ -L/usr/local/lib/gcc/mipsel-none-elf/4.7.0/soft-float/ -lm -lc -lgcc -lnosys && \
-echo strip && mipsel-none-elf-strip -R .reginfo -R .pdr -R .text.startup -R .eh_frame -R .comment -R .gnu.attributes obj/${EXE_NAME}.elf && \
+echo strip && mipsel-none-elf-strip -R .reginfo -R .pdr -R .text.startup -R .eh_frame -R .comment -R .gnu.attributes -R .rel.dyn obj/${EXE_NAME}.elf && \
 echo objcopy && mipsel-none-elf-objcopy -O binary obj/${EXE_NAME}.elf obj/${EXE_NAME}.tmp && \
 cp obj/${EXE_NAME}.tmp ${EXE_NAME}.exe && \
 cc -o tools/iso2raw tools/iso2raw.c && \

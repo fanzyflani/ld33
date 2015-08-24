@@ -249,48 +249,57 @@ int main(void)
 	// Prep module
 	f3m_player_init(&s3mplayer, fsys_s3m_test);
 
-	SPU_CNT = 0xC000;
-	SPU_MVOL_L = 0x3FFF;
-	SPU_MVOL_R = 0x3FFF;
-	for(i = 0; i < 24; i++)
-	{
-		SPU_n_ADSR(i) = 0x9FC083FF;
-		SPU_n_MVOL_L(i) = 0;
-		SPU_n_MVOL_R(i) = 0;
-	}
-	SPU_KOFF = 0x00FFFFFF;
-
-	// Set up timer
-	//TMR_n_TARGET(2) = 42300;//42336;
-	// pcsxr tends to get the timing wrong
-	/*
-	TMR_n_TARGET(2) = 42336;
-	TMR_n_COUNT(2) = 0x0000;
-	TMR_n_MODE(2) = 0x0608;
-	k = TMR_n_MODE(2);
-	*/
-
-	game_init();
-
-	TMR_n_COUNT(1) = 0;
 	for(;;)
 	{
-		//while(vblank_triggered == 0) {}
-		while(TMR_n_COUNT(1) < 0x80) {}
-		while(TMR_n_COUNT(1) >= 0x80)
+		SPU_CNT = 0xC000;
+		SPU_MVOL_L = 0x3FFF;
+		SPU_MVOL_R = 0x3FFF;
+		SPU_KOFF = 0x00FFFFFF;
+		for(i = 0; i < 24; i++)
 		{
-			// work around a bug in PCSXR
-			if(TMR_n_COUNT(1) >= (pcsxr_detected ? 314 : 350))
-				TMR_n_COUNT(1) = 0;
+			SPU_n_MVOL_L(i) = 0;
+			SPU_n_MVOL_R(i) = 0;
+			SPU_n_ADSR(i) = 0x9FC083FF;
 		}
+		SPU_KOFF = 0x00FFFFFF;
+		s3mplayer.cord = -1;
+		s3mplayer.crow = 64;
+		s3mplayer.ctick = s3mplayer.speed;
+
+		// Set up timer
+		//TMR_n_TARGET(2) = 42300;//42336;
+		// pcsxr tends to get the timing wrong
 		/*
-		while((TMR_n_MODE(2) & 0x0800) == 0) {}
-		while((TMR_n_MODE(2) & 0x0800) != 0) {}
-		while((TMR_n_MODE(2) & 0x0800) == 0) {}
-		while((TMR_n_MODE(2) & 0x0800) != 0) {}
+		TMR_n_TARGET(2) = 42336;
+		TMR_n_COUNT(2) = 0x0000;
+		TMR_n_MODE(2) = 0x0608;
+		k = TMR_n_MODE(2);
 		*/
-		game_update_frame();
-		f3m_player_play(&s3mplayer, NULL, NULL);
+
+		game_init();
+
+		TMR_n_COUNT(1) = 0;
+		for(;;)
+		{
+			//while(vblank_triggered == 0) {}
+			while(TMR_n_COUNT(1) < 0x80) {}
+			while(TMR_n_COUNT(1) >= 0x80)
+			{
+				// work around a bug in PCSXR
+				if(TMR_n_COUNT(1) >= (pcsxr_detected ? 314 : 350))
+					TMR_n_COUNT(1) = 0;
+			}
+			/*
+			while((TMR_n_MODE(2) & 0x0800) == 0) {}
+			while((TMR_n_MODE(2) & 0x0800) != 0) {}
+			while((TMR_n_MODE(2) & 0x0800) == 0) {}
+			while((TMR_n_MODE(2) & 0x0800) != 0) {}
+			*/
+			game_update_frame();
+			if(((pad_old_data & ~pad_data) & PAD_START) != 0)
+				break;
+			f3m_player_play(&s3mplayer, NULL, NULL);
+		}
 	}
 
 	for(;;)

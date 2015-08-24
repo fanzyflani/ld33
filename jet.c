@@ -1,32 +1,26 @@
-int jet_count = 3;
-jet_s jet_list[3] = {
-	{
-		{0, 0, 0, 0x10000},
-		0, 0,
-		0,
-		1<<13,
-
-		200, 2,
-	},
-	{
-		{0x18000, -0x60000, 0x150000, 0x10000},
-		0, 0,
-		0,
-		1<<13,
-
-		50, 2,
-	},
-	{
-		{0x18000, -0x60000, 0x190000, 0x10000},
-		0, 0,
-		0,
-		1<<13,
-
-		50, 2,
-	},
-};
+#define JET_MAX 100
+int jet_count = 0;
+jet_s jet_list[JET_MAX];
 
 jet_s *player = &jet_list[0];
+
+static int jet_add(fixed x, fixed y, fixed z, int health, int team, jet_ai_e ai_mode)
+{
+	int idx = jet_count++;
+
+	jet_s *jet = &jet_list[idx];
+	memset(jet, 0, sizeof(jet_s));
+
+	jet->pos[0] = x;
+	jet->pos[1] = y;
+	jet->pos[2] = z;
+	jet->pos[3] = 0x10000;
+	jet->health = health;
+	jet->team = team;
+	jet->tspd = 1<<13;
+	jet->ai_mode = ai_mode;
+
+}
 
 static void jet_draw(jet_s *jet, int is_shadow)
 {
@@ -60,9 +54,7 @@ static void jet_draw(jet_s *jet, int is_shadow)
 
 }
 
-static void jet_update(jet_s *jet,
-	fixed applied_tspd, fixed applied_rx, fixed applied_ry,
-	fixed applied_vx)
+static void jet_update(jet_s *jet)
 {
 	mat4 jmat;
 
@@ -70,6 +62,52 @@ static void jet_update(jet_s *jet,
 	{
 		// TODO: release smoke
 		return;
+	}
+
+	// Apply input
+	fixed applied_rx = 0;
+	fixed applied_ry = 0;
+	fixed applied_vx = 0;
+	fixed applied_tspd = 1<<13;
+
+	if(jet->ai_mode == JAI_PLAYER)
+	{
+		// TEST: Kill player on SELECT
+		if((pad_data & PAD_SELECT) != 0 && jet->health > 0)
+			jet->health = 0;
+
+		if((pad_data & PAD_X) != 0)
+			applied_tspd = 1<<15;
+		
+		if((pad_data & PAD_LEFT) != 0)
+			applied_ry -= 1;
+		if((pad_data & PAD_RIGHT) != 0)
+			applied_ry += 1;
+		if((pad_data & PAD_UP) != 0)
+			applied_rx -= 1;
+		if((pad_data & PAD_DOWN) != 0)
+			applied_rx += 1;
+		if((pad_data & PAD_L1) != 0)
+			applied_vx -= 1;
+		if((pad_data & PAD_R1) != 0)
+			applied_vx += 1;
+		
+		jet->mgun_fire = ((pad_data & PAD_S) != 0);
+
+		applied_rx <<= 9;
+		applied_ry <<= 9;
+
+	} else switch(jet->ai_mode) {
+		case JAI_LTURN7:
+			applied_ry = -1<<7;
+			break;
+
+		case JAI_RTURN7:
+			applied_ry = 1<<7;
+			break;
+
+		default:
+			break;
 	}
 
 	mat4_load_identity(&jmat);
@@ -112,7 +150,7 @@ static void jet_update(jet_s *jet,
 
 	if(jet->mgun_wait <= 0 && jet->mgun_fire)
 	{
-		shot_fire(jet->rx, jet->ry, &jet->pos, 1<<17, 1);
+		shot_fire(jet->rx, jet->ry, &jet->pos, 1<<17, jet->team);
 		jet->mgun_wait = 50/8;
 		jet->mgun_barrel ^= 1;
 	}

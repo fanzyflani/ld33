@@ -175,41 +175,10 @@ static void game_update_frame(void)
 	pad_old_data = pad_data;
 	joy_readpad();
 
-	// Apply input
-	fixed applied_rx = 0;
-	fixed applied_ry = 0;
-	fixed applied_vx = 0;
-	fixed applied_tspd = 1<<13;
-
-	// TEST: Kill player on SELECT
-	if((pad_data & PAD_SELECT) != 0 && player->health > 0)
-		player->health = 0;
-
-	if((pad_data & PAD_X) != 0)
-		applied_tspd = 1<<15;
-	
-	if((pad_data & PAD_LEFT) != 0)
-		applied_ry -= 1;
-	if((pad_data & PAD_RIGHT) != 0)
-		applied_ry += 1;
-	if((pad_data & PAD_UP) != 0)
-		applied_rx -= 1;
-	if((pad_data & PAD_DOWN) != 0)
-		applied_rx += 1;
-	if((pad_data & PAD_L1) != 0)
-		applied_vx -= 1;
-	if((pad_data & PAD_R1) != 0)
-		applied_vx += 1;
-	
-	player->mgun_fire = ((pad_data & PAD_S) != 0);
-
-	applied_rx <<= 9;
-	applied_ry <<= 9;
 
 	// Update jets
-	jet_update(player, applied_tspd, applied_rx, applied_ry, applied_vx);
-	jet_update(&jet_list[1], 1<<13, 0, 1<<7, 0);
-	jet_update(&jet_list[2], 1<<13, 0,-1<<7, 0);
+	for(i = 0; i < jet_count; i++)
+		jet_update(&jet_list[i]);
 
 	// Update shots
 	shot_update();
@@ -230,7 +199,14 @@ static void game_update_frame(void)
 
 void game_init(void)
 {
+	int i;
+
+	randseed = 12342135; // keyboard mash
 	hmap_gen();
+	jet_count = 0;
+	player = &jet_list[jet_add(0, 0, 0, 50, 1, JAI_PLAYER)];
+	jet_add(0x18000, -0x60000, 0x150000, 50, 2, JAI_LTURN7);
+	jet_add(0x18000, -0x60000, 0x190000, 50, 2, JAI_RTURN7);
 }
 
 
