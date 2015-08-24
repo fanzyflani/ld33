@@ -81,6 +81,7 @@ static void jet_update(jet_s *jet,
 		jet->rx += (0x4000 - jet->rx)>>7;
 		applied_ry = 1<<7;
 		jet->tspd += 1<<7;
+		applied_vx = 0;
 	} else {
 		jet->rx += applied_rx;
 		jet->tspd += (applied_tspd - jet->tspd)>>4;
