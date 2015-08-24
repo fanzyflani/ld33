@@ -82,9 +82,9 @@ mesh_s poly_tree1 = {
 };
 
 //
-// SHIP1
+// JET1
 //
-const static vec3 poly_ship1_v[] = {
+const static vec3 poly_jet1_v[] = {
 	{ 0x00000,  0x00000, 0x20000},
 	{-0x08000,  0x00000, 0x00000},
 	{ 0x08000,  0x00000, 0x00000},
@@ -96,7 +96,7 @@ const static vec3 poly_ship1_v[] = {
 	{ 0x18000,  0x00000,-0x03000},
 
 };
-const static uint16_t poly_ship1_i[] = {
+const static uint16_t poly_jet1_i[] = {
 	//0, 1, 2,
 	3, 0, 2,
 	3, 1, 0,
@@ -105,7 +105,7 @@ const static uint16_t poly_ship1_i[] = {
 	1, 4, 6,
 	2, 5, 7,
 };
-const static uint32_t poly_ship1_c[] = {
+const static uint32_t poly_jet1_c[] = {
 	//0xA0336699,
 	0xA055AAFF,
 	0xA04499EE,
@@ -116,10 +116,10 @@ const static uint32_t poly_ship1_c[] = {
 
 	0
 };
-mesh_s poly_ship1 = {
+mesh_s poly_jet1 = {
 	8,
-	poly_ship1_v,
-	poly_ship1_i,
-	poly_ship1_c,
+	poly_jet1_v,
+	poly_jet1_i,
+	poly_jet1_c,
 };
 

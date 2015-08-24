@@ -19,6 +19,12 @@ typedef struct jet
 	fixed tspd;
 } jet_s;
 
+jet_s jet_test = {
+	{0x18000, -0x60000, 0x150000, 0x10000},
+	0, 0,
+	0,
+	1<<9,
+};
 jet_s player = {
 	{0, 0, 0, 0x10000},
 	0, 0,
@@ -39,13 +45,36 @@ static fixed hmap_get(fixed x, fixed z)
 	return hmint;
 }
 
+static void jet_draw(jet_s *jet, int is_shadow)
+{
+	mat4_load_identity(&mat_obj);
+	mat4_rotate_z(&mat_obj, jet->tilt_y);
+	mat4_rotate_x(&mat_obj, -jet->rx);
+	mat4_rotate_y(&mat_obj, -jet->ry);
+	mat4_translate_vec4(&mat_obj, &jet->pos);
+
+	if(is_shadow)
+	{
+		mat4_translate_imm3(&mat_obj,
+			0, hmap_get(jet->pos[0], jet->pos[2]) - jet->pos[1], 0);
+		mesh_draw(&poly_jet1, MS_SHADOW);
+	} else {
+		mesh_draw(&poly_jet1, 0);
+	}
+
+}
+
 static void jet_update(jet_s *jet,
 	fixed applied_tspd, fixed applied_rx, fixed applied_ry,
 	fixed applied_vx)
 {
-	jet->rx += applied_rx<<9;
-	jet->ry += applied_ry<<9;
-	jet->tilt_y += ((applied_ry*0x3000)-jet->tilt_y)>>4;
+	mat4_load_identity(&mat_iplr);
+	mat4_rotate_x(&mat_iplr, -jet->rx);
+	mat4_rotate_y(&mat_iplr, -jet->ry);
+
+	jet->rx += applied_rx;
+	jet->ry += applied_ry;
+	jet->tilt_y += (((applied_ry>>9)*0x3000)-jet->tilt_y)>>4;
 	jet->tspd += (applied_tspd - jet->tspd)>>4;
 
 	fixed mvspd = jet->tspd;
@@ -90,9 +119,6 @@ static void game_update_frame(void)
 	mat4_load_identity(&mat_icam);
 	//mat4_rotate_x(&mat_icam, -player.rx);
 	mat4_rotate_y(&mat_icam, -player.ry);
-	mat4_load_identity(&mat_iplr);
-	mat4_rotate_x(&mat_iplr, -player.rx);
-	mat4_rotate_y(&mat_iplr, -player.ry);
 
 	// Calculate sky
 	int sky = 0;//((fixsin(-player.rx)*120)>>16);
@@ -191,14 +217,8 @@ static void game_update_frame(void)
 #endif
 
 	// shadows
-	mat4_load_identity(&mat_obj);
-	mat4_rotate_z(&mat_obj, player.tilt_y);
-	mat4_rotate_x(&mat_obj, -player.rx);
-	mat4_rotate_y(&mat_obj, -player.ry);
-	mat4_translate_vec4(&mat_obj, &player.pos);
-	mat4_translate_imm3(&mat_obj,
-		0, hmap_get(player.pos[0], player.pos[2]) - player.pos[1], 0);
-	mesh_draw(&poly_ship1, MS_SHADOW);
+	jet_draw(&player, 1);
+	jet_draw(&jet_test, 1);
 
 	mesh_flush(1);
 
@@ -215,18 +235,11 @@ static void game_update_frame(void)
 	mat4_translate_imm3(&mat_obj, -0x28000, hmap_get(-0x28000, 0x130000), 0x130000);
 	mesh_draw(&poly_tree1, 0);
 
-	mat4_load_identity(&mat_obj);
-	mat4_translate_imm3(&mat_obj, 0x18000, -0x20000 + hmap_get(0x18000, 0x150000), 0x150000);
-	mesh_draw(&poly_ship1, 0);
+	jet_draw(&jet_test, 0);
 
 	// player
 	//mesh_flush();
-	mat4_load_identity(&mat_obj);
-	mat4_rotate_z(&mat_obj, player.tilt_y);
-	mat4_rotate_x(&mat_obj, -player.rx);
-	mat4_rotate_y(&mat_obj, -player.ry);
-	mat4_translate_vec4(&mat_obj, &player.pos);
-	mesh_draw(&poly_ship1, 0);
+	jet_draw(&player, 0);
 
 	// finish drawing
 	mesh_flush(1);
@@ -274,8 +287,12 @@ static void game_update_frame(void)
 		applied_vx -= 1;
 	if((pad_data & PAD_R1) != 0)
 		applied_vx += 1;
+	
+	applied_rx <<= 9;
+	applied_ry <<= 9;
 
 	jet_update(&player, applied_tspd, applied_rx, applied_ry, applied_vx);
+	jet_update(&jet_test, 1<<11, 0, 1<<6, 0);
 
 	// Wrap player pos
 	player.pos[0] += (1<<(18+HMAP_POW-1));
