@@ -1,4 +1,3 @@
-typedef int fixed;
 #define FM_PI ((fixed)0x00008000)
 
 const int16_t sintab[256] = {

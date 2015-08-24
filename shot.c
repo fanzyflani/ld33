@@ -1,11 +1,6 @@
-typedef struct shot
-{
-	vec4 pos;
-	fixed rx, ry, vel;
-	uint8_t team;
-	uint8_t lifetime;
-	uint8_t _pad0[2];
-} shot_s;
+
+extern int jet_count;
+extern jet_s jet_list[];
 
 #define SHOT_MAX 128
 shot_s shot_list[SHOT_MAX];
@@ -41,6 +36,8 @@ static void shot_fire(fixed rx, fixed ry, vec4 *pos, fixed vel, uint8_t team)
 
 static void shot_update_one(shot_s *sh)
 {
+	int i, j;
+
 	// Skip dead bullets
 	if(sh->lifetime == 0)
 		return;
@@ -61,8 +58,31 @@ static void shot_update_one(shot_s *sh)
 	if(sh->pos[1] >= hmap_get(sh->pos[0], sh->pos[2]))
 		sh->lifetime = 0;
 
-	// Check against objects
+	// Check against jets
 	// TODO!
+	for(i = 0; i < jet_count; i++)
+	{
+		jet_s *jet = &jet_list[i];
+
+		// Skip friendly fire and dead jets
+		if(jet->team == sh->team || jet->health <= 0)
+			continue;
+
+		// Check if in range
+		vec4 cmpvec;
+		for(j = 0; j < 3; j++)
+			cmpvec[j] = jet->pos[j] - sh->pos[j];
+
+		fixed r2 = vec4_dot_3(&cmpvec, &cmpvec);
+
+		if(r2 <= 0x10000)
+		{
+			// Register hit!
+			jet->health -= 5;
+			jet->hit_flash = 5;
+
+		}
+	}
 }
 
 static void shot_update(void)

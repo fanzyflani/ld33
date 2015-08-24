@@ -15,19 +15,19 @@ static void game_update_frame(void)
 
 	// Build matrices
 	mat4_load_identity(&mat_cam);
-	mat4_translate_vec4_neg(&mat_cam, &player.pos);
-	mat4_rotate_y(&mat_cam, player.ry);
-	//mat4_rotate_x(&mat_cam, player.rx);
+	mat4_translate_vec4_neg(&mat_cam, &player->pos);
+	mat4_rotate_y(&mat_cam, player->ry);
+	//mat4_rotate_x(&mat_cam, player->rx);
 	mat4_translate_imm3(&mat_cam, 0, 0, 0x40000);
 	mat4_translate_imm3(&mat_cam, 0, 0x10000, 0);
 
 	mat4_load_identity(&mat_icam);
-	//mat4_rotate_x(&mat_icam, -player.rx);
-	mat4_rotate_y(&mat_icam, -player.ry);
+	//mat4_rotate_x(&mat_icam, -player->rx);
+	mat4_rotate_y(&mat_icam, -player->ry);
 
 	// Calculate sky
-	int sky = 0;//((fixsin(-player.rx)*120)>>16);
-	int skyswap = 0;//(fixcos(-player.rx) <= 0);
+	int sky = 0;//((fixsin(-player->rx)*120)>>16);
+	int skyswap = 0;//(fixcos(-player->rx) <= 0);
 	if(skyswap)
 		sky = -sky;
 
@@ -70,8 +70,8 @@ static void game_update_frame(void)
 	mat4_load_identity(&mat_obj);
 #if 1
 	fixed hdist = 0xA0000;
-	int xoffs = ((player.pos[0] + fixmul(hdist, mat_icam[2][0]))>>18)-VISRANGE;
-	int zoffs = ((player.pos[2] + fixmul(hdist, mat_icam[2][2]))>>18)-VISRANGE;
+	int xoffs = ((player->pos[0] + fixmul(hdist, mat_icam[2][0]))>>18)-VISRANGE;
+	int zoffs = ((player->pos[2] + fixmul(hdist, mat_icam[2][2]))>>18)-VISRANGE;
 	hmap_visx = xoffs+VISRANGE;
 	hmap_visz = zoffs+VISRANGE;
 	for(x = 0, i = 0; x < VISRANGE*2+2; x++)
@@ -131,7 +131,6 @@ static void game_update_frame(void)
 #endif
 
 	// Shadows
-	jet_draw(&player, 1);
 	for(i = 0; i < jet_count; i++)
 		jet_draw(&jet_list[i], 1);
 
@@ -148,9 +147,6 @@ static void game_update_frame(void)
 	// Jets
 	for(i = 0; i < jet_count; i++)
 		jet_draw(&jet_list[i], 0);
-
-	// Player
-	jet_draw(&player, 0);
 
 	// Finish drawing
 	mesh_flush(1);
@@ -201,26 +197,26 @@ static void game_update_frame(void)
 	if((pad_data & PAD_R1) != 0)
 		applied_vx += 1;
 	
-	player.mgun_fire = ((pad_data & PAD_S) != 0);
+	player->mgun_fire = ((pad_data & PAD_S) != 0);
 
 	applied_rx <<= 9;
 	applied_ry <<= 9;
 
 	// Update jets
-	jet_update(&player, applied_tspd, applied_rx, applied_ry, applied_vx);
-	jet_update(&jet_list[0], 1<<13, 0, 1<<7, 0);
-	jet_update(&jet_list[1], 1<<13, 0,-1<<7, 0);
+	jet_update(player, applied_tspd, applied_rx, applied_ry, applied_vx);
+	jet_update(&jet_list[1], 1<<13, 0, 1<<7, 0);
+	jet_update(&jet_list[2], 1<<13, 0,-1<<7, 0);
 
 	// Update shots
 	shot_update();
 
 	// Wrap player pos
-	player.pos[0] += (1<<(18+HMAP_POW-1));
-	player.pos[2] += (1<<(18+HMAP_POW-1));
-	player.pos[0] &= ((1<<(18+HMAP_POW))-1);
-	player.pos[2] &= ((1<<(18+HMAP_POW))-1);
-	player.pos[0] -= (1<<(18+HMAP_POW-1));
-	player.pos[2] -= (1<<(18+HMAP_POW-1));
+	player->pos[0] += (1<<(18+HMAP_POW-1));
+	player->pos[2] += (1<<(18+HMAP_POW-1));
+	player->pos[0] &= ((1<<(18+HMAP_POW))-1);
+	player->pos[2] &= ((1<<(18+HMAP_POW))-1);
+	player->pos[0] -= (1<<(18+HMAP_POW-1));
+	player->pos[2] -= (1<<(18+HMAP_POW-1));
 
 	// Final vtime
 	sprintf(update_str_buf, "ltime=%5i/314", TMR_n_COUNT(1));

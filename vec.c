@@ -1,7 +1,3 @@
-typedef fixed vec3[4];
-typedef fixed vec4[4];
-typedef vec4 mat4[4];
-
 static void vec3_set(vec3 *v, fixed x, fixed y, fixed z)
 {
 	(*v)[0] = x;

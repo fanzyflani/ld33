@@ -1,36 +1,32 @@
-typedef struct jet
-{
-	vec4 pos;
-	fixed rx, ry;
-	fixed tilt_y;
-	fixed tspd;
+int jet_count = 3;
+jet_s jet_list[3] = {
+	{
+		{0, 0, 0, 0x10000},
+		0, 0,
+		0,
+		1<<13,
 
-	uint8_t mgun_wait;
-	uint8_t mgun_barrel;
-	uint8_t mgun_fire;
-} jet_s;
-
-int jet_count = 2;
-jet_s jet_list[2] = {
+		200, 2,
+	},
 	{
 		{0x18000, -0x60000, 0x150000, 0x10000},
 		0, 0,
 		0,
 		1<<13,
+
+		50, 2,
 	},
 	{
 		{0x18000, -0x60000, 0x190000, 0x10000},
 		0, 0,
 		0,
 		1<<13,
+
+		50, 2,
 	},
 };
-jet_s player = {
-	{0, 0, 0, 0x10000},
-	0, 0,
-	0,
-	1<<13,
-};
+
+jet_s *player = &jet_list[0];
 
 static void jet_draw(jet_s *jet, int is_shadow)
 {
@@ -56,7 +52,10 @@ static void jet_draw(jet_s *jet, int is_shadow)
 			0, hmap_get(jet->pos[0], jet->pos[2]) - jet->pos[1], 0);
 		mesh_draw(&poly_jet1, MS_SHADOW);
 	} else {
-		mesh_draw(&poly_jet1, 0);
+		mesh_draw(&poly_jet1, (
+			//jet->crashed ? MS_SHADOW :
+			jet->hit_flash > 0 ? MS_FLASH :
+			0));
 	}
 
 }
@@ -67,14 +66,28 @@ static void jet_update(jet_s *jet,
 {
 	mat4 jmat;
 
+	if(jet->crashed)
+	{
+		// TODO: release smoke
+		return;
+	}
+
 	mat4_load_identity(&jmat);
 	mat4_rotate_x(&jmat, -jet->rx);
 	mat4_rotate_y(&jmat, -jet->ry);
 
-	jet->rx += applied_rx;
+	if(jet->health <= 0)
+	{
+		jet->rx += (0x4000 - jet->rx)>>7;
+		applied_ry = 1<<7;
+		jet->tspd += 1<<7;
+	} else {
+		jet->rx += applied_rx;
+		jet->tspd += (applied_tspd - jet->tspd)>>4;
+	}
+
 	jet->ry += applied_ry;
 	jet->tilt_y += ((applied_ry*(0x3000>>9))-jet->tilt_y)>>4;
-	jet->tspd += (applied_tspd - jet->tspd)>>4;
 
 	fixed mvspd = jet->tspd;
 	fixed mvspd_x = applied_vx<<13;
@@ -87,6 +100,10 @@ static void jet_update(jet_s *jet,
 	jet->pos[0] += fixmul(jmat[0][0], mvspd_x);
 	jet->pos[1] += fixmul(jmat[0][1], mvspd_x);
 	jet->pos[2] += fixmul(jmat[0][2], mvspd_x);
+
+	// Update flash
+	if(jet->hit_flash > 0)
+		jet->hit_flash--;
 
 	// Fire mgun shot
 	if(jet->mgun_wait > 0)
@@ -103,7 +120,9 @@ static void jet_update(jet_s *jet,
 	fixed hfloor = hmap_get(jet->pos[0], jet->pos[2]);
 	if(jet->pos[1] >= hfloor)
 	{
-		// TODO: explode jet
+		jet->crashed = 1;
+		jet->health = 0;
+		// TODO: play sound
 		jet->pos[1] = hfloor;
 	}
 }

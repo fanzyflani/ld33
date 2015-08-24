@@ -17,6 +17,8 @@ void update_music_status(int ins, int ins_num);
 #include "f3m.c"
 player_s s3mplayer;
 
+#include "structs.h"
+
 extern uint8_t fsys_rawcga[];
 extern uint8_t fsys_piresy[];
 //extern mod_s fsys_s3m_test[];
