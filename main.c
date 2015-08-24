@@ -26,10 +26,15 @@ volatile void *_current_brk = (volatile void *)end;
 
 #include "fix.c"
 #include "vec.c"
+
 #include "gpu.c"
 #include "joy.c"
+
+#include "hmap.c"
 #include "mesh.c"
 #include "dat/mesh.c"
+
+#include "jet.c"
 
 #include "game.c"
 

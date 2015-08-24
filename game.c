@@ -1,100 +1,10 @@
 // because if I make a file called game.c it should motivate me to actually make a game, right?
 
-#define HMAP_POW 7
-#define HMAP_L (1<<(HMAP_POW))
-#define VISRANGE 5
-static fixed hmap[HMAP_L][HMAP_L];
-
 typedef struct bldg
 {
 	vec3 pos;
 	mesh_s *mesh;
 } bldg_s;
-
-typedef struct jet
-{
-	vec4 pos;
-	fixed rx, ry;
-	fixed tilt_y;
-	fixed tspd;
-} jet_s;
-
-jet_s jet_test = {
-	{0x18000, -0x60000, 0x150000, 0x10000},
-	0, 0,
-	0,
-	1<<9,
-};
-jet_s player = {
-	{0, 0, 0, 0x10000},
-	0, 0,
-	0,
-	1<<13,
-};
-
-static fixed hmap_get(fixed x, fixed z)
-{
-	fixed hm00 = hmap[((z>>18)+0)&(HMAP_L-1)][((x>>18)+0)&(HMAP_L-1)];
-	fixed hm01 = hmap[((z>>18)+1)&(HMAP_L-1)][((x>>18)+0)&(HMAP_L-1)];
-	fixed hm10 = hmap[((z>>18)+0)&(HMAP_L-1)][((x>>18)+1)&(HMAP_L-1)];
-	fixed hm11 = hmap[((z>>18)+1)&(HMAP_L-1)][((x>>18)+1)&(HMAP_L-1)];
-	fixed hmintx0 = ((hm00<<10) + ((hm10 - hm00)*((x&0x3FFFF)>>8)))>>10;
-	fixed hmintx1 = ((hm01<<10) + ((hm11 - hm01)*((x&0x3FFFF)>>8)))>>10;
-	fixed hmint = ((hmintx0<<10) + ((hmintx1 - hmintx0)*((z&0x3FFFF)>>8)))>>10;
-
-	return hmint;
-}
-
-static void jet_draw(jet_s *jet, int is_shadow)
-{
-	mat4_load_identity(&mat_obj);
-	mat4_rotate_z(&mat_obj, jet->tilt_y);
-	mat4_rotate_x(&mat_obj, -jet->rx);
-	mat4_rotate_y(&mat_obj, -jet->ry);
-	mat4_translate_vec4(&mat_obj, &jet->pos);
-
-	if(is_shadow)
-	{
-		mat4_translate_imm3(&mat_obj,
-			0, hmap_get(jet->pos[0], jet->pos[2]) - jet->pos[1], 0);
-		mesh_draw(&poly_jet1, MS_SHADOW);
-	} else {
-		mesh_draw(&poly_jet1, 0);
-	}
-
-}
-
-static void jet_update(jet_s *jet,
-	fixed applied_tspd, fixed applied_rx, fixed applied_ry,
-	fixed applied_vx)
-{
-	mat4_load_identity(&mat_iplr);
-	mat4_rotate_x(&mat_iplr, -jet->rx);
-	mat4_rotate_y(&mat_iplr, -jet->ry);
-
-	jet->rx += applied_rx;
-	jet->ry += applied_ry;
-	jet->tilt_y += (((applied_ry>>9)*0x3000)-jet->tilt_y)>>4;
-	jet->tspd += (applied_tspd - jet->tspd)>>4;
-
-	fixed mvspd = jet->tspd;
-	fixed mvspd_x = applied_vx<<13;
-
-	jet->pos[0] += fixmul(mat_iplr[2][0], mvspd);
-	jet->pos[1] += fixmul(mat_iplr[2][1], mvspd);
-	jet->pos[2] += fixmul(mat_iplr[2][2], mvspd);
-
-	jet->pos[0] += fixmul(mat_iplr[0][0], mvspd_x);
-	jet->pos[1] += fixmul(mat_iplr[0][1], mvspd_x);
-	jet->pos[2] += fixmul(mat_iplr[0][2], mvspd_x);
-
-	fixed hfloor = hmap_get(jet->pos[0], jet->pos[2]);
-	if(jet->pos[1] >= hfloor)
-	{
-		// TODO: explode jet
-		jet->pos[1] = hfloor;
-	}
-}
 
 static void game_update_frame(void)
 {
@@ -306,50 +216,7 @@ static void game_update_frame(void)
 
 void game_init(void)
 {
-	int x, z, i;
-	int bx, bz;
-
-	// Clear heightmap
-	for(z = 0; z < HMAP_L; z++)
-	for(x = 0; x < HMAP_L; x++)
-		hmap[z][x] = 0;
-
-	// Create plasma noise
-	fixed amp;
-	hmap[0][0] = 0;
-	for(i = HMAP_POW-1, amp = 0x70000; i >= 0; i--, amp = (amp*0xC0)>>8)
-	{
-		int step = (1<<i);
-
-		for(bz = 0; bz < HMAP_L; bz += (step<<1))
-		for(bx = 0; bx < HMAP_L; bx += (step<<1))
-		{
-			int x0 = bx;
-			int z0 = bz;
-			int x1 = (bx+step)&(HMAP_L-1);
-			int z1 = (bz+step)&(HMAP_L-1);
-			int x2 = (bx+(step<<1))&(HMAP_L-1);
-			int z2 = (bz+(step<<1))&(HMAP_L-1);
-
-			// Square
-			hmap[z1][x0] = ((hmap[z2][x0] + hmap[z0][x0])>>1) + fixmulf(amp, fixrand1s());
-			hmap[z0][x1] = ((hmap[z0][x2] + hmap[z0][x0])>>1) + fixmulf(amp, fixrand1s());
-			hmap[z1][x2] = ((hmap[z0][x2] + hmap[z2][x2])>>1) + fixmulf(amp, fixrand1s());
-			hmap[z2][x1] = ((hmap[z2][x0] + hmap[z2][x2])>>1) + fixmulf(amp, fixrand1s());
-
-			// Diamond
-			hmap[z1][x1] =
-				((hmap[z1][x0] + hmap[z0][x1] + hmap[z1][x2] + hmap[z2][x1])>>2)
-				+ fixmulf(amp, fixrand1s());
-		}
-	}
-
-	// Place hotspots
-	bx = 0;
-	bz = 0;
-	for(z = -2; z <= 5; z++)
-	for(x = -2; x <= 2; x++)
-		hmap[(bz+z)&(HMAP_L-1)][(bx+x)&(HMAP_L-1)] = 0x10000;
+	hmap_gen();
 }
 
 
