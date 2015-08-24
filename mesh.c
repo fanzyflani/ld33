@@ -201,17 +201,17 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii, int flag
 		}
 		fixed zsum = 0;
 
-		for(j = 0; j < vcount; j++)
+		for(i = 0; i < vcount; i++)
 		{
-			//vec4_copy((vec4 *)&pc->pts[j], (vec4 *)&vbase[l[j]]);
-			pc->pts[j][0] = vbase[l[j]][0];
-			pc->pts[j][1] = vbase[l[j]][1];
-			pc->pts[j][2] = vbase[l[j]][2];
-			zsum += pc->pts[j][2];
+			//vec4_copy((vec4 *)&pc->pts[i], (vec4 *)&vbase[l[i]]);
+			pc->pts[i][0] = vbase[l[i]][0];
+			pc->pts[i][1] = vbase[l[i]][1];
+			pc->pts[i][2] = vbase[l[i]][2];
+			zsum += pc->pts[i][2];
 
-			pc->cmd_list[j+1] = (
-				(vp[l[j]][0]&0xFFFF) +
-				(vp[l[j]][1]<<16));
+			pc->cmd_list[i+1] = (
+				(vp[l[i]][0]&0xFFFF) +
+				(vp[l[i]][1]<<16));
 		}
 
 		pcprio[pcidx] = zsum/vcount;
@@ -233,9 +233,7 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 	int iv, ii, ic;
 	for(i = 0; i < mesh->vc && i < VTX_MAX; i++)
 	{
-		v[i][0] = mesh->v[i][0];
-		v[i][1] = mesh->v[i][1];
-		v[i][2] = mesh->v[i][2];
+		memcpy(&v[i], &mesh->v[i], sizeof(fixed)*3);
 		v[i][3] = 0x10000;
 		mat4_apply_vec4(&v[i], &mat_obj_cam);
 		//mat4_apply_vec4(&v[i], &mat_obj);

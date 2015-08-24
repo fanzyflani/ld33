@@ -1,11 +1,5 @@
 // because if I make a file called game.c it should motivate me to actually make a game, right?
 
-vec4 player_pos = {0, 0, 0, 0x10000};
-fixed player_ry = 0;
-fixed player_rx = 0;
-fixed player_tilt_y = 0;
-fixed player_tspd = 1<<13;
-
 #define HMAP_POW 7
 #define HMAP_L (1<<(HMAP_POW))
 #define VISRANGE 5
@@ -13,8 +7,24 @@ static fixed hmap[HMAP_L][HMAP_L];
 
 typedef struct bldg
 {
-
+	vec3 pos;
+	mesh_s *mesh;
 } bldg_s;
+
+typedef struct jet
+{
+	vec4 pos;
+	fixed rx, ry;
+	fixed tilt_y;
+	fixed tspd;
+} jet_s;
+
+jet_s player = {
+	{0, 0, 0, 0x10000},
+	0, 0,
+	0,
+	1<<13,
+};
 
 static fixed hmap_get(fixed x, fixed z)
 {
@@ -27,6 +37,34 @@ static fixed hmap_get(fixed x, fixed z)
 	fixed hmint = ((hmintx0<<10) + ((hmintx1 - hmintx0)*((z&0x3FFFF)>>8)))>>10;
 
 	return hmint;
+}
+
+static void jet_update(jet_s *jet,
+	fixed applied_tspd, fixed applied_rx, fixed applied_ry,
+	fixed applied_vx)
+{
+	jet->rx += applied_rx<<9;
+	jet->ry += applied_ry<<9;
+	jet->tilt_y += ((applied_ry*0x3000)-jet->tilt_y)>>4;
+	jet->tspd += (applied_tspd - jet->tspd)>>4;
+
+	fixed mvspd = jet->tspd;
+	fixed mvspd_x = applied_vx<<13;
+
+	jet->pos[0] += fixmul(mat_iplr[2][0], mvspd);
+	jet->pos[1] += fixmul(mat_iplr[2][1], mvspd);
+	jet->pos[2] += fixmul(mat_iplr[2][2], mvspd);
+
+	jet->pos[0] += fixmul(mat_iplr[0][0], mvspd_x);
+	jet->pos[1] += fixmul(mat_iplr[0][1], mvspd_x);
+	jet->pos[2] += fixmul(mat_iplr[0][2], mvspd_x);
+
+	fixed hfloor = hmap_get(jet->pos[0], jet->pos[2]);
+	if(jet->pos[1] >= hfloor)
+	{
+		// TODO: explode jet
+		jet->pos[1] = hfloor;
+	}
 }
 
 static void game_update_frame(void)
@@ -43,22 +81,22 @@ static void game_update_frame(void)
 
 	// Build matrices
 	mat4_load_identity(&mat_cam);
-	mat4_translate_vec4_neg(&mat_cam, &player_pos);
-	mat4_rotate_y(&mat_cam, player_ry);
-	//mat4_rotate_x(&mat_cam, player_rx);
+	mat4_translate_vec4_neg(&mat_cam, &player.pos);
+	mat4_rotate_y(&mat_cam, player.ry);
+	//mat4_rotate_x(&mat_cam, player.rx);
 	mat4_translate_imm3(&mat_cam, 0, 0, 0x40000);
 	mat4_translate_imm3(&mat_cam, 0, 0x10000, 0);
 
 	mat4_load_identity(&mat_icam);
-	//mat4_rotate_x(&mat_icam, -player_rx);
-	mat4_rotate_y(&mat_icam, -player_ry);
+	//mat4_rotate_x(&mat_icam, -player.rx);
+	mat4_rotate_y(&mat_icam, -player.ry);
 	mat4_load_identity(&mat_iplr);
-	mat4_rotate_x(&mat_iplr, -player_rx);
-	mat4_rotate_y(&mat_iplr, -player_ry);
+	mat4_rotate_x(&mat_iplr, -player.rx);
+	mat4_rotate_y(&mat_iplr, -player.ry);
 
 	// Calculate sky
-	int sky = 0;//((fixsin(-player_rx)*120)>>16);
-	int skyswap = 0;//(fixcos(-player_rx) <= 0);
+	int sky = 0;//((fixsin(-player.rx)*120)>>16);
+	int skyswap = 0;//(fixcos(-player.rx) <= 0);
 	if(skyswap)
 		sky = -sky;
 
@@ -100,9 +138,9 @@ static void game_update_frame(void)
 	// TODO: correct ordering so we don't need to qsort this
 	mat4_load_identity(&mat_obj);
 #if 1
-	fixed hdist = 0x80000;
-	int xoffs = ((player_pos[0] + fixmul(hdist, mat_icam[2][0]))>>18)-VISRANGE;
-	int zoffs = ((player_pos[2] + fixmul(hdist, mat_icam[2][2]))>>18)-VISRANGE;
+	fixed hdist = 0xA0000;
+	int xoffs = ((player.pos[0] + fixmul(hdist, mat_icam[2][0]))>>18)-VISRANGE;
+	int zoffs = ((player.pos[2] + fixmul(hdist, mat_icam[2][2]))>>18)-VISRANGE;
 	for(x = 0, i = 0; x < VISRANGE*2+2; x++)
 	for(z = 0; z < VISRANGE*2+2; z++, i++)
 	{
@@ -124,6 +162,26 @@ static void game_update_frame(void)
 		mworld_i[i*4+1] = (z+1)+(x+0)*(VISRANGE*2+2);
 		mworld_i[i*4+2] = (z+0)+(x+1)*(VISRANGE*2+2);
 		mworld_i[i*4+3] = (z+1)+(x+1)*(VISRANGE*2+2);
+
+		// would need gouraud shading for this to look any good
+		/*
+		fixed y00 = mworld_v[mworld_i[i*4+0]][1];
+		fixed y01 = mworld_v[mworld_i[i*4+1]][1];
+		fixed y10 = mworld_v[mworld_i[i*4+2]][1];
+		fixed y11 = mworld_v[mworld_i[i*4+3]][1];
+
+		// Do a cross product and normalise
+		fixed yd0 = y01-y00;
+		fixed yd1 = y10-y00;
+		const fixed ydz2 = (1<<16);
+		fixed ydlen = fixsqrt(fixmulf(yd0, yd0) + fixmulf(yd1, yd1) + ydz2);
+		fixed ydilen = fixdiv(0x4000, ydlen);
+		if(ydilen > 0x10000) ydilen = 0x10000;
+		uint32_t col = (ydilen * 0xFF)>>16;
+		col <<= 8;
+		mworld_c[i] = 0xA8000000 | col;
+		*/
+
 		mworld_c[i] = (((x^z^xoffs^zoffs)&1) == 0 ? 0xA8003F00 : 0xA8005F00);
 	}
 	mworld_c[i] = 0;
@@ -134,12 +192,12 @@ static void game_update_frame(void)
 
 	// shadows
 	mat4_load_identity(&mat_obj);
-	mat4_rotate_z(&mat_obj, player_tilt_y);
-	mat4_rotate_x(&mat_obj, -player_rx);
-	mat4_rotate_y(&mat_obj, -player_ry);
-	mat4_translate_vec4(&mat_obj, &player_pos);
+	mat4_rotate_z(&mat_obj, player.tilt_y);
+	mat4_rotate_x(&mat_obj, -player.rx);
+	mat4_rotate_y(&mat_obj, -player.ry);
+	mat4_translate_vec4(&mat_obj, &player.pos);
 	mat4_translate_imm3(&mat_obj,
-		0, hmap_get(player_pos[0], player_pos[2]) - player_pos[1], 0);
+		0, hmap_get(player.pos[0], player.pos[2]) - player.pos[1], 0);
 	mesh_draw(&poly_ship1, MS_SHADOW);
 
 	mesh_flush(1);
@@ -164,10 +222,10 @@ static void game_update_frame(void)
 	// player
 	//mesh_flush();
 	mat4_load_identity(&mat_obj);
-	mat4_rotate_z(&mat_obj, player_tilt_y);
-	mat4_rotate_x(&mat_obj, -player_rx);
-	mat4_rotate_y(&mat_obj, -player_ry);
-	mat4_translate_vec4(&mat_obj, &player_pos);
+	mat4_rotate_z(&mat_obj, player.tilt_y);
+	mat4_rotate_x(&mat_obj, -player.rx);
+	mat4_rotate_y(&mat_obj, -player.ry);
+	mat4_translate_vec4(&mat_obj, &player.pos);
 	mesh_draw(&poly_ship1, 0);
 
 	// finish drawing
@@ -181,7 +239,7 @@ static void game_update_frame(void)
 	screen_print(16, 16+8*2, 0x7F7F7F, update_str_buf);
 	//sprintf(update_str_buf, "pc=%i %p %p %p", pclist_max, pclist, pcorder, pcprio);
 	//screen_print(16, 16+8*3, 0x7F7F7F, update_str_buf);
-	sprintf(update_str_buf, "pp=%08X %08X", player_pos[0], player_pos[2]);
+	sprintf(update_str_buf, "pp=%08X %08X", player.pos[0], player.pos[2]);
 	screen_print(16, 16+8*4, 0x7F7F7F, update_str_buf);
 	//sprintf(update_str_buf, "halp=%08X", fixrand1s());
 	//screen_print(16, 16+8*5, 0x7F7F7F, update_str_buf);
@@ -196,17 +254,14 @@ static void game_update_frame(void)
 	joy_readpad();
 
 	// Apply input
-	fixed mvspd_x = 1<<13;
 	fixed applied_rx = 0;
 	fixed applied_ry = 0;
+	fixed applied_vx = 0;
 	fixed applied_tspd = 1<<13;
 
 	if((pad_data & PAD_X) != 0)
 		applied_tspd = 1<<15;
 	
-	player_tspd += (applied_tspd - player_tspd)>>4;
-	fixed mvspd = player_tspd;
-
 	if((pad_data & PAD_LEFT) != 0)
 		applied_ry -= 1;
 	if((pad_data & PAD_RIGHT) != 0)
@@ -215,34 +270,21 @@ static void game_update_frame(void)
 		applied_rx -= 1;
 	if((pad_data & PAD_DOWN) != 0)
 		applied_rx += 1;
-	
-	player_rx += applied_rx<<9;
-	player_ry += applied_ry<<9;
-	player_tilt_y += ((applied_ry*0x3000)-player_tilt_y)>>4;
-
 	if((pad_data & PAD_L1) != 0)
-	{
-		player_pos[0] -= fixmul(mat_iplr[0][0], mvspd_x);
-		player_pos[1] -= fixmul(mat_iplr[0][1], mvspd_x);
-		player_pos[2] -= fixmul(mat_iplr[0][2], mvspd_x);
-	}
+		applied_vx -= 1;
 	if((pad_data & PAD_R1) != 0)
-	{
-		player_pos[0] += fixmul(mat_iplr[0][0], mvspd_x);
-		player_pos[1] += fixmul(mat_iplr[0][1], mvspd_x);
-		player_pos[2] += fixmul(mat_iplr[0][2], mvspd_x);
-	}
-	player_pos[0] += fixmul(mat_iplr[2][0], mvspd);
-	player_pos[1] += fixmul(mat_iplr[2][1], mvspd);
-	player_pos[2] += fixmul(mat_iplr[2][2], mvspd);
+		applied_vx += 1;
+
+	jet_update(&player, applied_tspd, applied_rx, applied_ry, applied_vx);
 
 	// Wrap player pos
-	player_pos[0] += (1<<(18+HMAP_POW-1));
-	player_pos[2] += (1<<(18+HMAP_POW-1));
-	player_pos[0] &= ((1<<(18+HMAP_POW))-1);
-	player_pos[2] &= ((1<<(18+HMAP_POW))-1);
-	player_pos[0] -= (1<<(18+HMAP_POW-1));
-	player_pos[2] -= (1<<(18+HMAP_POW-1));
+	player.pos[0] += (1<<(18+HMAP_POW-1));
+	player.pos[2] += (1<<(18+HMAP_POW-1));
+	player.pos[0] &= ((1<<(18+HMAP_POW))-1);
+	player.pos[2] &= ((1<<(18+HMAP_POW))-1);
+	player.pos[0] -= (1<<(18+HMAP_POW-1));
+	player.pos[2] -= (1<<(18+HMAP_POW-1));
+
 }
 
 void game_init(void)

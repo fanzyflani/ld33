@@ -87,7 +87,7 @@ static fixed fixsqrt(fixed v)
 	for(i = 15; i >= 1; i--)
 	{
 		fixed tret2 = ret2 + (2<<i);
-		if(tret2 < v)
+		if(tret2 <= v)
 		{
 			ret += (1<<i);
 			ret2 = tret2;
