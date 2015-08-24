@@ -9,7 +9,7 @@ SECTIONS
 		. = ALIGN(8);
 		*(.rodata.cst8)
 		*(.rodata.cst4)
-		*(.text)
+		*(.text*)
 		*(.rodata)
 		*(.rodata.str1.4)
 		*(.data*)
