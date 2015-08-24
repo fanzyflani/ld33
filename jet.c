@@ -24,6 +24,9 @@ static int jet_add(fixed x, fixed y, fixed z, int health, int team, jet_ai_e ai_
 
 static void jet_draw(jet_s *jet, int is_shadow)
 {
+	// Check if live
+	if(jet->crashed >= 64) return;
+
 	// Check if in view dist
 	int hx = (jet->pos[0]>>18);
 	int hz = (jet->pos[2]>>18);
@@ -38,6 +41,8 @@ static void jet_draw(jet_s *jet, int is_shadow)
 	mat4_rotate_z(&mat_obj, jet->tilt_y);
 	mat4_rotate_x(&mat_obj, -jet->rx);
 	mat4_rotate_y(&mat_obj, -jet->ry);
+	if(jet->crashed >= 1)
+		mat4_scale(&mat_obj, (64-(jet->crashed-1))<<(16-6));
 	mat4_translate_vec4(&mat_obj, &jet->pos);
 
 	if(is_shadow)
@@ -60,6 +65,9 @@ static void jet_update(jet_s *jet)
 
 	if(jet->crashed > 0)
 	{
+		if(jet->crashed < 64)
+			jet->crashed++;
+
 		// TODO: release smoke
 		return;
 	}

@@ -125,8 +125,8 @@ static void gpu_init(void)
 	gpu_send_control_gp1(0x01000000);
 
 	// Set display area 
-	//gpu_crtc_range(0x260, 0x88-(224/2), 320*8, 224); // NTSC
-	gpu_crtc_range(0x260, 0xA3-(224/2), 320*8, 224); // PAL
+	//gpu_crtc_range(0x260, 0x88-(240/2), 320*8, 240); // NTSC
+	gpu_crtc_range(0x260, 0xA3-(240/2), 320*8, 239); // PAL
 	gpu_display_start(0, 8);
 
 	// Set display mode 

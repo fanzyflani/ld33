@@ -7,7 +7,7 @@ static void game_update_frame(void)
 	uint8_t update_str_buf[64];
 
 	// Flip pages
-	gpu_display_start(0, screen_buffer + 8);
+	gpu_display_start(0, screen_buffer+1);
 	screen_buffer = (screen_buffer == 0 ? 240 : 0);
 	gpu_draw_range(0, screen_buffer, 320, 240 + screen_buffer);
 	gpu_draw_offset(0 + 160, screen_buffer + 120);
@@ -141,7 +141,7 @@ static void game_update_frame(void)
 	mesh_flush(0);
 
 	// Buildings
-	for(i = 0; i < bldg_num; i++)
+	for(i = 0; i < bldg_count; i++)
 		bldg_draw(&bldg_list[i]);
 
 	// Jets
@@ -165,9 +165,25 @@ static void game_update_frame(void)
 	//screen_print(16, 16+8*4, 0x7F7F7F, update_str_buf);
 	//sprintf(update_str_buf, "halp=%08X", fixrand1s());
 	//screen_print(16, 16+8*5, 0x7F7F7F, update_str_buf);
+	screen_print(12, 240-8-12, 0x7F7F7F, "LIFE");
+
+	const int bar_width = 320-(12+8*4+4)-16;
+	int bar_filled = (player->health * bar_width/50 + 8)&~0xF;
+	gpu_send_control_gp0(0x0200007F);
+	gpu_push_vertex(12+8*4+4, 240-8-12 + screen_buffer);
+	gpu_push_vertex(bar_width, 8);
+	gpu_send_control_gp0(0x02007F00);
+	gpu_push_vertex(12+8*4+4, 240-8-12 + screen_buffer);
+	gpu_push_vertex(bar_filled, 8);
 
 	if(pcsxr_detected)
 		screen_print(150, 8, 0x4F4F7F, "PCSXR IS PRETTY BUGGY");
+
+	if(player->crashed > 0)
+	{
+		const char *msg = "PRESS START TO RETRY";
+		screen_print(160-strlen(msg)*4, 120-4, 0x7F7F7F, msg);
+	}
 
 	//while((GP1 & 0x10000000) == 0) {}
 
@@ -203,10 +219,16 @@ void game_init(void)
 
 	randseed = 12342135; // keyboard mash
 	hmap_gen();
+
 	jet_count = 0;
 	player = &jet_list[jet_add(0, 0, 0, 50, 1, JAI_PLAYER)];
 	jet_add(0x18000, -0x60000, 0x150000, 50, 2, JAI_LTURN7);
 	jet_add(0x18000, -0x60000, 0x190000, 50, 2, JAI_RTURN7);
+
+	bldg_count = 0;
+	bldg_add( 0x00000, 0x180000, &poly_building);
+	bldg_add( 0x50000, 0x100000, &poly_tree1);
+	bldg_add(-0x28000, 0x130000, &poly_tree1);
 }
 
 

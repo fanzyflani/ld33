@@ -270,9 +270,10 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 	*/
 	for(i = 0; i < mesh->vc && i < VTX_MAX; i++)
 	{
-		vp[i][0] = v[i][0]*120/(v[i][2] > 1 ? v[i][2] : 1);
-		vp[i][1] = v[i][1]*120/(v[i][2] > 1 ? v[i][2] : 1);
-		vp[i][2] = v[i][2];
+		fixed z = (v[i][2] > 1 ? v[i][2] : 1);
+		vp[i][0] = v[i][0]*120/z;
+		vp[i][1] = v[i][1]*120/z;
+		vp[i][2] = z;
 		/*
 		if(vp[i][0] < -1023) vp[i][0] = -1023;
 		if(vp[i][0] >  1023) vp[i][0] =  1023;

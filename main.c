@@ -171,7 +171,7 @@ void update_music_status(int ins, int ins_num)
 		{}
 
 	// Flip pages
-	gpu_display_start(0, screen_buffer + 8);
+	gpu_display_start(0, screen_buffer + 1);
 	screen_buffer = (screen_buffer == 0 ? 240 : 0);
 	gpu_draw_range(0, screen_buffer, 320, 240 + screen_buffer);
 	gpu_draw_offset(0 + 160, screen_buffer + 120);

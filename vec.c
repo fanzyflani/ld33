@@ -193,6 +193,15 @@ static void mat4_rotate_z(mat4 *M, fixed ang)
 	}
 }
 
+static void mat4_scale(mat4 *M, fixed s)
+{
+	int i, j;
+
+	for(i = 0; i < 3; i++)
+	for(j = 0; j < 3; j++)
+		(*M)[i][j] = fixmul((*M)[i][j], s);
+}
+
 static void mat4_apply_vec4(vec4 *v, mat4 *A)
 {
 	int i, j;
