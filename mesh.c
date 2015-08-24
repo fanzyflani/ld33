@@ -32,6 +32,7 @@ fixed pcprio[POLY_MAX];
 poly_chunk_s pclist[POLY_MAX];
 int pclist_num = 0;
 int pclist_max = POLY_MAX;
+int mesh_tstat = 0;
 
 mat4 mat_cam, mat_obj, mat_obj_cam;
 mat4 mat_icam;
@@ -184,6 +185,9 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii, int flag
 		if(dx0*dy1 - dy0*dx1 < 0)
 			return;
 	}
+
+	// Update stats
+	mesh_tstat += (vcount-2);
 
 	// Calculate cross product
 	//vec4 fnorm;

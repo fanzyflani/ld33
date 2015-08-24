@@ -10,11 +10,20 @@ typedef struct jet
 	uint8_t mgun_fire;
 } jet_s;
 
-jet_s jet_test = {
-	{0x18000, -0x60000, 0x150000, 0x10000},
-	0, 0,
-	0,
-	1<<13,
+int jet_count = 2;
+jet_s jet_list[2] = {
+	{
+		{0x18000, -0x60000, 0x150000, 0x10000},
+		0, 0,
+		0,
+		1<<13,
+	},
+	{
+		{0x18000, -0x60000, 0x190000, 0x10000},
+		0, 0,
+		0,
+		1<<13,
+	},
 };
 jet_s player = {
 	{0, 0, 0, 0x10000},
@@ -64,7 +73,7 @@ static void jet_update(jet_s *jet,
 
 	jet->rx += applied_rx;
 	jet->ry += applied_ry;
-	jet->tilt_y += (((applied_ry>>9)*0x3000)-jet->tilt_y)>>4;
+	jet->tilt_y += ((applied_ry*(0x3000>>9))-jet->tilt_y)>>4;
 	jet->tspd += (applied_tspd - jet->tspd)>>4;
 
 	fixed mvspd = jet->tspd;

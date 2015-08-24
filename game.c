@@ -11,6 +11,7 @@ static void game_update_frame(void)
 	screen_buffer = (screen_buffer == 0 ? 240 : 0);
 	gpu_draw_range(0, screen_buffer, 320, 240 + screen_buffer);
 	gpu_draw_offset(0 + 160, screen_buffer + 120);
+	mesh_tstat = 0;
 
 	// Build matrices
 	mat4_load_identity(&mat_cam);
@@ -129,28 +130,29 @@ static void game_update_frame(void)
 	//mesh_clear();
 #endif
 
-	// shadows
+	// Shadows
 	jet_draw(&player, 1);
-	jet_draw(&jet_test, 1);
+	for(i = 0; i < jet_count; i++)
+		jet_draw(&jet_list[i], 1);
 
 	mesh_flush(1);
 
-	// shots shots shots shots shots shots shots shots everybody
+	// SHOTS SHOTS SHOTS SHOTS SHOTS SHOTS SHOTS SHOTS EVERYBODY
 	shot_draw();
 	mesh_flush(0);
 
-	// buildings
+	// Buildings
 	for(i = 0; i < bldg_num; i++)
 		bldg_draw(&bldg_list[i]);
 
-	// jets
-	jet_draw(&jet_test, 0);
+	// Jets
+	for(i = 0; i < jet_count; i++)
+		jet_draw(&jet_list[i], 0);
 
-	// player
-	//mesh_flush();
+	// Player
 	jet_draw(&player, 0);
 
-	// finish drawing
+	// Finish drawing
 	mesh_flush(1);
 
 	// Draw strings
@@ -159,6 +161,8 @@ static void game_update_frame(void)
 	screen_print(16, 16+8*1, 0x007F7F, update_str_buf);
 	sprintf(update_str_buf, "vtime=%5i/314", TMR_n_COUNT(1));
 	screen_print(16, 16+8*2, 0x7F7F7F, update_str_buf);
+	sprintf(update_str_buf, "tris=%5i", mesh_tstat);
+	screen_print(16, 16+8*4, 0x7F7F7F, update_str_buf);
 	//sprintf(update_str_buf, "pc=%i %p %p %p", pclist_max, pclist, pcorder, pcprio);
 	//screen_print(16, 16+8*3, 0x7F7F7F, update_str_buf);
 	//sprintf(update_str_buf, "shot=%4i %4i", shot_head, shot_tail);
@@ -204,7 +208,8 @@ static void game_update_frame(void)
 
 	// Update jets
 	jet_update(&player, applied_tspd, applied_rx, applied_ry, applied_vx);
-	jet_update(&jet_test, 1<<13, 0, 1<<7, 0);
+	jet_update(&jet_list[0], 1<<13, 0, 1<<7, 0);
+	jet_update(&jet_list[1], 1<<13, 0,-1<<7, 0);
 
 	// Update shots
 	shot_update();
@@ -216,6 +221,10 @@ static void game_update_frame(void)
 	player.pos[2] &= ((1<<(18+HMAP_POW))-1);
 	player.pos[0] -= (1<<(18+HMAP_POW-1));
 	player.pos[2] -= (1<<(18+HMAP_POW-1));
+
+	// Final vtime
+	sprintf(update_str_buf, "ltime=%5i/314", TMR_n_COUNT(1));
+	screen_print(16, 16+8*3, 0x7F7F7F, update_str_buf);
 
 }
 

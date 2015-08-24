@@ -14,15 +14,15 @@ SECTIONS
 		*(.rodata.str1.4)
 		*(.data*)
 		_gp = ALIGN(16) + 0x7ff0;
-		*(.scommon)
-		*(.sdata)
+		*(.scommon*)
+		*(.sdata*)
 		. = (. + 0x7FF) & ~ 0x7FF;
 	}
 	_LOADABLE_END = .;
 	_LOADABLE_SIZE = _LOADABLE_END - (_LOADABLE_START_WHEAD + 0x800);
 	_BSS_START = .;
 	.bss : {
-		*(.sbss)
+		*(.sbss*)
 		*(.bss)
 	}
 	. = (. + 0x7FF) & ~ 0x7FF;
