@@ -29,9 +29,7 @@ typedef struct poly_chunk
 	int len;
 	uint32_t dma_chain;
 	uint32_t cmd_list[1+4];
-	vec3 pts[4];
-	//vec4 fnorm;
-	//uint32_t _pad0[1];
+	uint32_t _pad0[1];
 } poly_chunk_s;
 
 //int32_t *pcorder = NULL;
@@ -157,7 +155,7 @@ static int mesh_alloc_poly()
 	return idx;
 }
 
-static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii, int flags)
+static void mesh_add_poly(const mesh_s *mesh, int ic, int ii, int flags)
 {
 	int i, j;
 	const uint16_t *l = &mesh->i[ii];
@@ -170,18 +168,18 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii, int flag
 	// Check facing + range
 	for(j = 0; j < vcount; j++)
 	{
-		if(vp[l[j]][2] <= 0x0008) return;
+		if(vbase[l[j]][2] <= 0x0008) return;
 		/*
-		if(vp[l[j]][0] <= -1023) return;
-		if(vp[l[j]][0] >=  1023) return;
-		if(vp[l[j]][1] <= -1023) return;
-		if(vp[l[j]][1] >=  1023) return;
+		if(vbase[l[j]][0] <= -1023) return;
+		if(vbase[l[j]][0] >=  1023) return;
+		if(vbase[l[j]][1] <= -1023) return;
+		if(vbase[l[j]][1] >=  1023) return;
 		*/
 		/*
-		if(vp[l[j]][0] <= -160) return;
-		if(vp[l[j]][0] >=  160) return;
-		if(vp[l[j]][1] <= -120) return;
-		if(vp[l[j]][1] >=  120) return;
+		if(vbase[l[j]][0] <= -160) return;
+		if(vbase[l[j]][0] >=  160) return;
+		if(vbase[l[j]][1] <= -120) return;
+		if(vbase[l[j]][1] >=  120) return;
 		*/
 	}
 
@@ -189,10 +187,10 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii, int flag
 	// Abuse top bit for bidirectional flag
 	if((mesh->c[ic] & 0x80000000) == 0)
 	{
-		int dx0 = (vp[l[1]][0] - vp[l[0]][0]);
-		int dy0 = (vp[l[1]][1] - vp[l[0]][1]);
-		int dx1 = (vp[l[2]][0] - vp[l[0]][0]);
-		int dy1 = (vp[l[2]][1] - vp[l[0]][1]);
+		int dx0 = (vbase[l[1]][0] - vbase[l[0]][0]);
+		int dy0 = (vbase[l[1]][1] - vbase[l[0]][1]);
+		int dx1 = (vbase[l[2]][0] - vbase[l[0]][0]);
+		int dy1 = (vbase[l[2]][1] - vbase[l[0]][1]);
 		if(dx0*dy1 - dy0*dx1 < 0)
 			return;
 	}
@@ -225,35 +223,53 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii, int flag
 
 		if((flags & MS_NOPRIO) == 0)
 		{
-			for(i = 0; i < vcount; i++)
+			if(vcount == 3)
 			{
-				//vec4_copy((vec4 *)&pc->pts[i], (vec4 *)&vbase[l[i]]);
-				pc->pts[i][0] = vbase[l[i]][0];
-				pc->pts[i][1] = vbase[l[i]][1];
-				pc->pts[i][2] = vbase[l[i]][2];
-				zsum += pc->pts[i][2];
+				/*
+				// broken, and oddly enough slower than what we have
+				asm volatile(
+					"\tmtc2 %1, $19\n"
+					"\tmtc2 %2, $18\n"
+					"\tmtc2 %3, $17\n"
+					"\tcop2 0x158002D\n" // AVSZ3
+					"\tmfc2 %0, $7\n"
+					:
+					"=r"(pcprio[pcidx])
+					:
+					"r"(vbase[l[0]][2]),
+					"r"(vbase[l[1]][2]),
+					"r"(vbase[l[2]][2])
+					:);
+				*/
+				for(i = 0; i < 3; i++)
+				{
+					zsum += vbase[l[i]][2];
 
-				pc->cmd_list[i+1] = (
-					(vp[l[i]][0]&0xFFFF) +
-					(vp[l[i]][1]<<16));
+					pc->cmd_list[i+1] = (
+						(vbase[l[i]][0]&0xFFFF) +
+						(vbase[l[i]][1]<<16));
+				}
+
+				pcprio[pcidx] = zsum/3;
+
+			} else {
+				for(i = 0; i < 4; i++)
+				{
+					zsum += vbase[l[i]][2];
+
+					pc->cmd_list[i+1] = (
+						(vbase[l[i]][0]&0xFFFF) +
+						(vbase[l[i]][1]<<16));
+				}
+
+				pcprio[pcidx] = zsum/4;
 			}
-
-			pcprio[pcidx] = zsum/vcount;
-			/*
-			asm volatile(
-				"\t\n"
-				::
-				"r"(pc->pts[i][0]),
-				"r"(pc->pts[i][1]),
-				"r"(pc->pts[i][2]),
-				:);
-			*/
 		} else {
 			for(i = 0; i < vcount; i++)
 			{
 				pc->cmd_list[i+1] = (
-					(vp[l[i]][0]&0xFFFF) +
-					(vp[l[i]][1]<<16));
+					(vbase[l[i]][0]&0xFFFF) +
+					(vbase[l[i]][1]<<16));
 			}
 			pcprio[pcidx] = 0;
 		}
@@ -273,7 +289,6 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 
 	// Build points
 	vec4 *v = vbase;
-	static vec4 vp[VTX_MAX];
 	int iv, ii, ic;
 
 	// Load rotation matrix
@@ -314,10 +329,14 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 		"\tctc2 %0, $24\n"
 		"\tctc2 %1, $25\n"
 		"\tctc2 %2, $26\n"
+		"\tctc2 %3, $29\n"
+		"\tctc2 %4, $30\n"
 		: :
 		"r"(0), // OFX
 		"r"(0), // OFY
-		"r"(120) // H
+		"r"(120), // H
+		"r"(0x1000/3), // ZSF3
+		"r"(0x1000/4) // ZSF4
 		: );
 
 	// Apply transformation
@@ -423,38 +442,35 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 
 		// Project points
 #ifdef USE_GTE_RTPT
-		vp[i+0][0] = (res0_xy<<16)>>16;
-		vp[i+0][1] = (res0_xy>>16);
-		vp[i+0][2] = res0_z;
-		vp[i+1][0] = (res1_xy<<16)>>16;
-		vp[i+1][1] = (res1_xy>>16);
-		vp[i+1][2] = res1_z;
-		vp[i+2][0] = (res2_xy<<16)>>16;
-		vp[i+2][1] = (res2_xy>>16);
-		vp[i+2][2] = res2_z;
+		vbase[i+0][0] = (res0_xy<<16)>>16;
+		vbase[i+0][1] = (res0_xy>>16);
+		vbase[i+0][2] = res0_z;
+		vbase[i+1][0] = (res1_xy<<16)>>16;
+		vbase[i+1][1] = (res1_xy>>16);
+		vbase[i+1][2] = res1_z;
+		vbase[i+2][0] = (res2_xy<<16)>>16;
+		vbase[i+2][1] = (res2_xy>>16);
+		vbase[i+2][2] = res2_z;
 #else
 #ifdef USE_GTE_PERSP
-		vp[i][0] = (res0_xy<<16)>>16;
-		vp[i][1] = (res0_xy>>16);
-		vp[i][2] = res0_z;
+		vbase[i][0] = (res0_xy<<16)>>16;
+		vbase[i][1] = (res0_xy>>16);
+		vbase[i][2] = res0_z;
 #else
-		v[i][0] = res0_ix;
-		v[i][1] = res0_iy;
-		v[i][2] = res0_iz;
-		v[i][3] = 0x10000;
-		fixed z = (v[i][2] > 1 ? v[i][2] : 1);
-		vp[i][0] = v[i][0]*120/z;
-		vp[i][1] = v[i][1]*120/z;
-		vp[i][2] = z;
+		fixed z = res0_iz;
+		z = (z > 1 ? z : 1);
+		vbase[i][0] = res0_ix*120/z;
+		vbase[i][1] = res0_iy*120/z;
+		vbase[i][2] = z;
 #endif
 #endif
 		/*
-		if(vp[i][0] < -1023) vp[i][0] = -1023;
-		if(vp[i][0] >  1023) vp[i][0] =  1023;
-		if(vp[i][1] < -1023) vp[i][1] = -1023;
-		if(vp[i][1] >  1023) vp[i][1] =  1023;
+		if(vbase[i][0] < -1023) vbase[i][0] = -1023;
+		if(vbase[i][0] >  1023) vbase[i][0] =  1023;
+		if(vbase[i][1] < -1023) vbase[i][1] = -1023;
+		if(vbase[i][1] >  1023) vbase[i][1] =  1023;
 		*/
-		//if(vp[l[j]][2] <= 0x0008) return;
+		//if(vbase[l[j]][2] <= 0x0008) return;
 
 		// mark as "destroy this primitive" early
 		// saves on the number of checks we have to do
@@ -464,12 +480,12 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 		uint32_t gte_flag;
 		asm volatile("\tcfc2 %0, $31\n" : "=r"(gte_flag) : : );
 		if((gte_flag & 0x00006000) != 0)
-			vp[i][2] = 1;
+			vbase[i][2] = 1;
 		/*
-		if(vp[i][0] <= -1023) vp[i][2] = 1;
-		else if(vp[i][0] >=  1023) vp[i][2] = 1;
-		else if(vp[i][1] <= -1023) vp[i][2] = 1;
-		else if(vp[i][1] >=  1023) vp[i][2] = 1;
+		if(vbase[i][0] <= -1023) vbase[i][2] = 1;
+		else if(vbase[i][0] >=  1023) vbase[i][2] = 1;
+		else if(vbase[i][1] <= -1023) vbase[i][2] = 1;
+		else if(vbase[i][1] >=  1023) vbase[i][2] = 1;
 		*/
 #endif
 	}
@@ -479,7 +495,7 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 	for(ic = 0, ii = 0; mesh->c[ic] != 0;
 		ii += ((mesh->c[ic++] & 0x08000000) != 0 ? 4 : 3))
 	{
-		mesh_add_poly(mesh, vp, ic, ii, flags);
+		mesh_add_poly(mesh, ic, ii, flags);
 	}
 }
 
