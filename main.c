@@ -19,6 +19,7 @@ player_s s3mplayer;
 
 #include "structs.h"
 
+jet_s *player;
 extern uint8_t fsys_rawcga[];
 extern uint8_t fsys_piresy[];
 //extern mod_s fsys_s3m_test[];
@@ -263,8 +264,21 @@ int main(void)
 	// Prep module
 	f3m_player_init(&s3mplayer, fsys_s3m_test);
 
+	SPU_CNT = 0xC000;
+	SPU_MVOL_L = 0x3FFF;
+	SPU_MVOL_R = 0x3FFF;
+	SPU_KOFF = 0x00FFFFFF;
+	for(i = 0; i < 24; i++)
+	{
+		SPU_n_MVOL_L(i) = 0;
+		SPU_n_MVOL_R(i) = 0;
+		SPU_n_ADSR(i) = 0x9FC083FF;
+	}
+	SPU_KOFF = 0x00FFFFFF;
+
 	for(;;)
 	{
+		/*
 		SPU_CNT = 0xC000;
 		SPU_MVOL_L = 0x3FFF;
 		SPU_MVOL_R = 0x3FFF;
@@ -279,6 +293,7 @@ int main(void)
 		s3mplayer.cord = -1;
 		s3mplayer.crow = 64;
 		s3mplayer.ctick = s3mplayer.speed;
+		*/
 
 		// Set up timer
 		//TMR_n_TARGET(2) = 42300;//42336;

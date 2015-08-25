@@ -156,7 +156,7 @@ static void game_update_frame(void)
 	// Draw strings
 	gpu_send_control_gp1(0x01000000);
 	sprintf(update_str_buf, "Enemies: %i/%i", jet_enemy_rem, jet_enemy_max);
-	screen_print(16, 16+8*1, 0x7F7F7F, update_str_buf);
+	screen_print(16, 16+8*0, 0x7F7F7F, update_str_buf);
 	/*
 	sprintf(update_str_buf, "joypad=%04X", pad_data);
 	screen_print(16, 16+8*1, 0x007F7F, update_str_buf);
@@ -215,8 +215,8 @@ static void game_update_frame(void)
 	player->pos[0] -= (1<<(18+HMAP_POW-1));
 	player->pos[2] -= (1<<(18+HMAP_POW-1));
 
-	// If no more enemies, advance level
-	if(jet_enemy_rem <= 0)
+	// If no more enemies, and player not dead, advance level
+	if(jet_enemy_rem <= 0 && player->health > 0)
 	{
 		jet_level++;
 		game_init();

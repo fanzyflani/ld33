@@ -62,7 +62,7 @@ static void vec4_normalize_3(vec4 *v)
 	fixed rcp = fixisqrt(sum2);
 
 	for(i = 0; i < 3; i++)
-		(*v)[i] = fixmul((*v)[i], rcp);
+		(*v)[i] = fixmulf((*v)[i], rcp);
 }
 
 static void mat4_load_identity(mat4 *M)

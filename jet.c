@@ -6,8 +6,6 @@ int jet_enemy_rem = 0;
 int jet_level = 0;
 uint32_t jet_seeds[JET_MAX];
 
-jet_s *player = &jet_list[0];
-
 static int jet_add(fixed x, fixed y, fixed z, int health, int team, jet_ai_e ai_mode)
 {
 	int idx = jet_count++;
@@ -245,9 +243,20 @@ static void jet_update(jet_s *jet)
 		if(jet->team == 2)
 			jet_enemy_rem--;
 
+		if(jet->health > 0 || jet == player)
+		{
+			// Play crash sound
+			SPU_n_ADSR(16) = 0x9FC083FF;
+			SPU_n_START(16) = s3mplayer.psx_spu_offset[16];
+			SPU_n_PITCH(16) = 0x0800;
+			SPU_n_MVOL_L(16) = (jet == player ? 0x3FFF : 0x1FFF);
+			SPU_n_MVOL_R(16) = (jet == player ? 0x3FFF : 0x1FFF);
+			SPU_KON = (1<<16);
+		}
+
 		jet->health = 0;
-		// TODO: play sound
 		jet->pos[1] = hfloor;
+
 	}
 }
 

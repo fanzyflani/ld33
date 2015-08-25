@@ -79,7 +79,33 @@ static void shot_update_one(shot_s *sh)
 		{
 			// Register hit!
 			jet->health -= 5;
-			jet->hit_flash = 5;
+			jet->hit_flash = (jet->health > 0 ? 5 : 25);
+
+			// Play sound
+			if(jet->health > 0 || jet == player)
+			{
+				SPU_n_ADSR(17) = 0x9FC083FF;
+				SPU_n_START(17) = s3mplayer.psx_spu_offset[17];
+				if(jet == player)
+				{
+					SPU_n_PITCH(17) = (jet->health > 0 ? 0x0600 : 0x0200);
+					SPU_n_MVOL_L(17) = 0x3FFF;
+					SPU_n_MVOL_R(17) = 0x3FFF;
+				} else {
+					SPU_n_PITCH(17) = (0x0800);
+					SPU_n_MVOL_L(17) = 0x1FFF;
+					SPU_n_MVOL_R(17) = 0x1FFF;
+				}
+				SPU_KON = (1<<17);
+			} else {
+				// Play crash sound
+				SPU_n_ADSR(16) = 0x9FC083FF;
+				SPU_n_START(16) = s3mplayer.psx_spu_offset[16];
+				SPU_n_PITCH(16) = 0x0800;
+				SPU_n_MVOL_L(16) = 0x1FFF;
+				SPU_n_MVOL_R(16) = 0x1FFF;
+				SPU_KON = (1<<16);
+			}
 
 		}
 	}
@@ -112,6 +138,16 @@ static void shot_draw_one(shot_s *sh)
 	if(sh->lifetime == 0)
 		return;
 	
+	// Check if in view dist
+	int hx = (sh->pos[0]>>18);
+	int hz = (sh->pos[2]>>18);
+	hx -= hmap_visx;
+	hz -= hmap_visz;
+	if(hx < 0) hx = -hx;
+	if(hz < 0) hz = -hz;
+
+	if(hx > VISRANGE || hz > VISRANGE) return;
+
 	// Draw
 	mat4_load_identity(&mat_obj);
 	mat4_rotate_x(&mat_obj, -sh->rx);
