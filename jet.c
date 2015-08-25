@@ -1,6 +1,10 @@
 #define JET_MAX 100
 int jet_count = 0;
 jet_s jet_list[JET_MAX];
+int jet_enemy_max = 0;
+int jet_enemy_rem = 0;
+int jet_level = 0;
+uint32_t jet_seeds[JET_MAX];
 
 jet_s *player = &jet_list[0];
 
@@ -20,6 +24,11 @@ static int jet_add(fixed x, fixed y, fixed z, int health, int team, jet_ai_e ai_
 	jet->tspd = 1<<13;
 	jet->ai_mode = ai_mode;
 
+	if(jet->team == 2)
+	{
+		jet_enemy_max++;
+		jet_enemy_rem++;
+	}
 }
 
 static void jet_draw(jet_s *jet, int is_shadow)
@@ -80,9 +89,11 @@ static void jet_update(jet_s *jet)
 
 	if(jet->ai_mode == JAI_PLAYER)
 	{
+		/*
 		// TEST: Kill player on SELECT
 		if((pad_data & PAD_SELECT) != 0 && jet->health > 0)
 			jet->health = 0;
+		*/
 
 		if((pad_data & PAD_X) != 0)
 			applied_tspd = 1<<15;
@@ -111,9 +122,11 @@ static void jet_update(jet_s *jet)
 			fixed dy = player->pos[1] - jet->pos[1];
 			fixed dz = player->pos[2] - jet->pos[2];
 
+			// because I'm too much of a cheapskate to implement proper boids
+			fixed radj = fixrand1s()>>(16-8);
+
 			// Calculate y-dot to work out best ry
 			const fixed rotsy = 1<<8;
-			fixed radj = fixrand1s()>>(16-8);
 			fixed ys = fixsin(jet->ry + radj);
 			fixed yc = fixcos(jet->ry + radj);
 			fixed ysl = fixsin(jet->ry + radj - rotsy);
@@ -150,12 +163,19 @@ static void jet_update(jet_s *jet)
 				applied_rx =  rotsx;
 			}
 
+			// Make sure we don't crash into the ground
+			fixed hdy = hmap_get(jet->pos[0], jet->pos[2]) - jet->pos[1];
+			if(hdy < 0x40000 && jet->rx > -0x3000) 
+			{
+				applied_rx = -rotsx;
+			}
+
 			// Work out if we should fire
 			vec4 dv = {dx, dy, dz, 0x00000};
 			vec4 av = {fixmulf(ys, xc), xs, fixmulf(yc, xc), 0x00000};
 			vec4_normalize_3(&dv);
 			fixed dotfire = vec4_dot_3(&dv, &av);
-			jet->mgun_fire = (dotfire >= 0xD000);
+			jet->mgun_fire = (dotfire >= 0xF000);
 
 			// TODO: more stuff
 		} break;
@@ -191,7 +211,7 @@ static void jet_update(jet_s *jet)
 	jet->tilt_y += ((applied_ry*(0x3000>>9))-jet->tilt_y)>>4;
 
 	fixed mvspd = jet->tspd;
-	fixed mvspd_x = applied_vx<<13;
+	fixed mvspd_x = applied_vx<<14;
 
 	// Apply matrix
 	jet->pos[0] += fixmul(jmat[2][0], mvspd);
@@ -222,6 +242,9 @@ static void jet_update(jet_s *jet)
 	if(jet->pos[1] >= hfloor)
 	{
 		jet->crashed = 1;
+		if(jet->team == 2)
+			jet_enemy_rem--;
+
 		jet->health = 0;
 		// TODO: play sound
 		jet->pos[1] = hfloor;

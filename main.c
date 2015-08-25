@@ -180,7 +180,7 @@ void update_music_status(int ins, int ins_num)
 int main(void)
 {
 	volatile int k;
-	int x, y, i;
+	int x, y, i, j;
 
 	// Set up GPU
 	gpu_init();
@@ -243,6 +243,20 @@ int main(void)
 				pcsxr_detected = 1;
 				break;
 			}
+		}
+	}
+
+	// Prep game seeds
+	jet_level = 1;
+	randseed = 12342135; // keyboard mash
+	for(i = 1; i < JET_MAX; i++)
+	{
+		jet_seeds[i] = randseed;
+		for(j = 0; j < 30000; j++)
+		{
+			randseed *= 1103515245U;
+			randseed += 12345U;
+			randseed &= 0x7FFFFFFFU;
 		}
 	}
 

@@ -122,17 +122,19 @@ static void shot_draw_one(shot_s *sh)
 
 static void shot_draw(void)
 {
-	int i = shot_tail;
+	int i = shot_head-1;
+	int j;
+	if(i < 0) i = SHOT_MAX-1;
 
-	while(i != shot_head)
+	for(j = 0; j < 5 && i != shot_tail; j++)
 	{
 		// Update
 		shot_draw_one(&shot_list[i]);
 
 		// Advance
-		i++;
-		if(i >= SHOT_MAX)
-			i = 0;
+		i--;
+		if(i < 0)
+			i = SHOT_MAX-1;
 	}
 
 }

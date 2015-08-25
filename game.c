@@ -1,5 +1,7 @@
 // because if I make a file called game.c it should motivate me to actually make a game, right?
 
+void game_init(void);
+
 static void game_update_frame(void)
 {
 	volatile int lag;
@@ -153,27 +155,33 @@ static void game_update_frame(void)
 
 	// Draw strings
 	gpu_send_control_gp1(0x01000000);
+	sprintf(update_str_buf, "Enemies: %i/%i", jet_enemy_rem, jet_enemy_max);
+	screen_print(16, 16+8*1, 0x7F7F7F, update_str_buf);
+	/*
 	sprintf(update_str_buf, "joypad=%04X", pad_data);
 	screen_print(16, 16+8*1, 0x007F7F, update_str_buf);
+	*/
+	/*
 	sprintf(update_str_buf, "vtime=%5i/314", TMR_n_COUNT(1));
 	screen_print(16, 16+8*2, 0x7F7F7F, update_str_buf);
 	sprintf(update_str_buf, "tris=%5i", mesh_tstat);
 	screen_print(16, 16+8*4, 0x7F7F7F, update_str_buf);
+	*/
 	//sprintf(update_str_buf, "pc=%i %p %p %p", pclist_max, pclist, pcorder, pcprio);
 	//screen_print(16, 16+8*3, 0x7F7F7F, update_str_buf);
 	//sprintf(update_str_buf, "shot=%4i %4i", shot_head, shot_tail);
 	//screen_print(16, 16+8*4, 0x7F7F7F, update_str_buf);
 	//sprintf(update_str_buf, "halp=%08X", fixrand1s());
 	//screen_print(16, 16+8*5, 0x7F7F7F, update_str_buf);
-	screen_print(12, 240-8-12, 0x7F7F7F, "LIFE");
+	screen_print(12, 240-8-20, 0x7F7F7F, "LIFE");
 
 	const int bar_width = 320-(12+8*4+4)-16;
 	int bar_filled = (player->health * bar_width/50 + 8)&~0xF;
 	gpu_send_control_gp0(0x0200007F);
-	gpu_push_vertex(12+8*4+4, 240-8-12 + screen_buffer);
+	gpu_push_vertex(12+8*4+4, 240-8-20 + screen_buffer);
 	gpu_push_vertex(bar_width, 8);
 	gpu_send_control_gp0(0x02007F00);
-	gpu_push_vertex(12+8*4+4, 240-8-12 + screen_buffer);
+	gpu_push_vertex(12+8*4+4, 240-8-20 + screen_buffer);
 	gpu_push_vertex(bar_filled, 8);
 
 	if(pcsxr_detected)
@@ -207,9 +215,18 @@ static void game_update_frame(void)
 	player->pos[0] -= (1<<(18+HMAP_POW-1));
 	player->pos[2] -= (1<<(18+HMAP_POW-1));
 
+	// If no more enemies, advance level
+	if(jet_enemy_rem <= 0)
+	{
+		jet_level++;
+		game_init();
+	}
+
 	// Final vtime
+	/*
 	sprintf(update_str_buf, "ltime=%5i/314", TMR_n_COUNT(1));
 	screen_print(16, 16+8*3, 0x7F7F7F, update_str_buf);
+	*/
 
 }
 
@@ -217,18 +234,34 @@ void game_init(void)
 {
 	int i;
 
-	randseed = 12342135; // keyboard mash
+	randseed = jet_seeds[jet_level];
 	hmap_gen();
 
 	jet_count = 0;
+	jet_enemy_max = 0;
+	jet_enemy_rem = 0;
 	player = &jet_list[jet_add(0, 0, 0, 50, 1, JAI_PLAYER)];
-	jet_add(0x18000, -0x60000, 0x150000, 50, 2, JAI_HUNT_MAIN);
-	jet_add(0x18000, -0x60000, 0x190000, 50, 2, JAI_HUNT_MAIN);
+
+	for(i = 0; i < jet_level; i++)
+	{
+		fixed xspawn = fixrand1s()*40;
+		fixed zspawn = fixrand1s()*40;
+		jet_add(xspawn, hmap_get(xspawn, zspawn)-0x50000, zspawn, 50, 2, JAI_HUNT_MAIN);
+	}
 
 	bldg_count = 0;
-	bldg_add( 0x00000, 0x180000, &poly_building);
-	bldg_add( 0x50000, 0x100000, &poly_tree1);
-	bldg_add(-0x28000, 0x130000, &poly_tree1);
+	for(i = 0; i < 25; i++)
+	{
+		fixed xspawn = fixrand1s()*40;
+		fixed zspawn = fixrand1s()*40;
+		fixrand1s();
+		bldg_add(xspawn, zspawn,
+			fixrand1s() > 0
+				? &poly_building
+				: &poly_tree1
+			);
+
+	}
 }
 
 
