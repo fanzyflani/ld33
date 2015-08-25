@@ -1,5 +1,7 @@
 // because if I make a file called game.c it should motivate me to actually make a game, right?
 
+#define SHOW_DEBUG
+
 void game_init(void);
 
 static void game_update_frame(void)
@@ -161,12 +163,12 @@ static void game_update_frame(void)
 	sprintf(update_str_buf, "joypad=%04X", pad_data);
 	screen_print(16, 16+8*1, 0x007F7F, update_str_buf);
 	*/
-	/*
+#ifdef SHOW_DEBUG
 	sprintf(update_str_buf, "vtime=%5i/314", TMR_n_COUNT(1));
 	screen_print(16, 16+8*2, 0x7F7F7F, update_str_buf);
 	sprintf(update_str_buf, "tris=%5i", mesh_tstat);
 	screen_print(16, 16+8*4, 0x7F7F7F, update_str_buf);
-	*/
+#endif
 	//sprintf(update_str_buf, "pc=%i %p %p %p", pclist_max, pclist, pcorder, pcprio);
 	//screen_print(16, 16+8*3, 0x7F7F7F, update_str_buf);
 	//sprintf(update_str_buf, "shot=%4i %4i", shot_head, shot_tail);
@@ -226,10 +228,10 @@ static void game_update_frame(void)
 	}
 
 	// Final vtime
-	/*
+#ifdef SHOW_DEBUG
 	sprintf(update_str_buf, "ltime=%5i/314", TMR_n_COUNT(1));
 	screen_print(16, 16+8*3, 0x7F7F7F, update_str_buf);
-	*/
+#endif
 
 }
 

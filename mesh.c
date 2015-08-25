@@ -1,6 +1,17 @@
 // disabled because of display corruption
 //define USE_DMA
 
+#define USE_GTE_PERSP
+
+// This requires USE_GTE_PERSP!
+//define USE_GTE_RTPT
+
+#ifdef USE_GTE_RTPT
+#ifndef USE_GTE_PERSP
+#error "USE_GTE_RTPT requires USE_GTE_PERSP"
+#endif
+#endif
+
 #define MS_SHADOW (1<<0)
 #define MS_FLASH (1<<1)
 #define MS_NOPRIO (1<<2)
@@ -228,6 +239,15 @@ static void mesh_add_poly(const mesh_s *mesh, vec4 *vp, int ic, int ii, int flag
 			}
 
 			pcprio[pcidx] = zsum/vcount;
+			/*
+			asm volatile(
+				"\t\n"
+				::
+				"r"(pc->pts[i][0]),
+				"r"(pc->pts[i][1]),
+				"r"(pc->pts[i][2]),
+				:);
+			*/
 		} else {
 			for(i = 0; i < vcount; i++)
 			{
@@ -248,32 +268,186 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 	// Combine matrices
 	//mat4_mul_mat4_mat4(&mat_obj_cam, &mat_cam, &mat_obj);
 	mat4_mul_mat4_mat4(&mat_obj_cam, &mat_obj, &mat_cam);
+	//mat4_scale(&mat_obj_cam, 1<<(16+4));
+	// TODO: find appropriate scale factor for GTE
 
 	// Build points
 	vec4 *v = vbase;
 	static vec4 vp[VTX_MAX];
 	int iv, ii, ic;
-	for(i = 0; i < mesh->vc && i < VTX_MAX; i++)
+
+	// Load rotation matrix
+	asm volatile (
+		"\tctc2 %0, $0\n"
+		"\tctc2 %1, $1\n"
+		"\tctc2 %2, $2\n"
+		"\tctc2 %3, $3\n"
+		"\tctc2 %4, $4\n"
+		: :
+		"r"(((mat_obj_cam[0][0]>>4)&0xFFFF)|((mat_obj_cam[1][0]>>4)<<16)),
+		"r"(((mat_obj_cam[2][0]>>4)&0xFFFF)|((mat_obj_cam[0][1]>>4)<<16)),
+		"r"(((mat_obj_cam[1][1]>>4)&0xFFFF)|((mat_obj_cam[2][1]>>4)<<16)),
+		"r"(((mat_obj_cam[0][2]>>4)&0xFFFF)|((mat_obj_cam[1][2]>>4)<<16)),
+		"r"(mat_obj_cam[2][2]>>4)
+		: );
+	
+	// Load translation vector
+	// TODO: fix wrapping issues
+	const int gte_loss_invec = 9;
+	const int gte_tshift = gte_loss_invec;
+	fixed tx_prep = mat_obj_cam[3][0]>>gte_tshift;
+	fixed ty_prep = mat_obj_cam[3][1]>>gte_tshift;
+	fixed tz_prep = mat_obj_cam[3][2]>>gte_tshift;
+	asm volatile (
+		"\tctc2 %0, $5\n"
+		"\tctc2 %1, $6\n"
+		"\tctc2 %2, $7\n"
+		: :
+		"r"(tx_prep),
+		"r"(ty_prep),
+		"r"(tz_prep)
+		: );
+
+	// Load screen offset and whatnot
+	// TODO: only do this once per frame
+	asm volatile (
+		"\tctc2 %0, $24\n"
+		"\tctc2 %1, $25\n"
+		"\tctc2 %2, $26\n"
+		: :
+		"r"(0), // OFX
+		"r"(0), // OFY
+		"r"(120) // H
+		: );
+
+	// Apply transformation
+#ifdef USE_GTE_RTPT
+	const int gte_stride = 3;
+#else
+	const int gte_stride = 1;
+#endif
+	for(i = 0; i < mesh->vc && i < VTX_MAX; i += gte_stride)
 	{
-		memcpy(&v[i], &mesh->v[i], sizeof(fixed)*3);
-		v[i][3] = 0x10000;
-		mat4_apply_vec4(&v[i], &mat_obj_cam);
+		// Load vec3
+		asm volatile (
+			"\tmtc2 %0, $0\n"
+			"\tmtc2 %1, $1\n"
+#ifdef USE_GTE_RTPT
+			"\tmtc2 %2, $2\n"
+			"\tmtc2 %3, $3\n"
+			"\tmtc2 %4, $4\n"
+			"\tmtc2 %5, $5\n"
+#endif
+			: :
+			"r"(((mesh->v[i][0]>>gte_loss_invec)&0xFFFF)
+			|((mesh->v[i][1]>>gte_loss_invec)<<16)),
+			"r"(mesh->v[i][2]>>gte_loss_invec)
+#ifdef USE_GTE_RTPT
+			,
+			"r"(((mesh->v[i+1][0]>>gte_loss_invec)&0xFFFF)
+			|((mesh->v[i+1][1]>>gte_loss_invec)<<16)),
+			"r"(mesh->v[i+1][2]>>gte_loss_invec),
+			"r"(((mesh->v[i+2][0]>>gte_loss_invec)&0xFFFF)
+			|((mesh->v[i+2][1]>>gte_loss_invec)<<16)),
+			"r"(mesh->v[i+2][2]>>gte_loss_invec)
+#endif
+			: );
+
+		//memcpy(&v[i], &mesh->v[i], sizeof(fixed)*3);
+		//v[i][3] = 0x10000;
+
+		// RTPS
+#ifdef USE_GTE_RTPT
+		asm volatile ("\tcop2 0x0180001\n");
+#else
+		asm volatile ("\tcop2 0x0180001\n");
+#endif
+
+		// Stash result
+#ifdef USE_GTE_RTPT
+		fixed res0_xy, res0_z;
+		fixed res1_xy, res1_z;
+		fixed res2_xy, res2_z;
+#else
+#ifdef USE_GTE_PERSP
+		fixed res0_xy, res0_z;
+#else
+		fixed res0_ix, res0_iy, res0_iz;
+#endif
+#endif
+
+
+#ifdef USE_GTE_RTPT
+		asm volatile(
+			"\tmfc2 %0, $14\n"
+			"\tmfc2 %1, $19\n"
+			"\tmfc2 %2, $14\n"
+			"\tmfc2 %3, $19\n"
+			"\tmfc2 %4, $14\n"
+			"\tmfc2 %5, $19\n"
+			:
+			"=r"(res0_xy),
+			"=r"(res0_z),
+			"=r"(res1_xy),
+			"=r"(res1_z),
+			"=r"(res2_xy),
+			"=r"(res2_z)
+			::);
+#else
+
+#ifdef USE_GTE_PERSP
+		asm volatile(
+			"\tmfc2 %0, $14\n"
+			"\tmfc2 %1, $19\n"
+			:
+			"=r"(res0_xy),
+			"=r"(res0_z)
+			::);
+#else
+		asm volatile(
+			"\tmfc2 %0, $9\n"
+			"\tmfc2 %1, $10\n"
+			"\tmfc2 %2, $11\n"
+			:
+			"=r"(res0_ix),
+			"=r"(res0_iy),
+			"=r"(res0_iz)
+			::);
+#endif
+
+#endif
+
+		//mat4_apply_vec4(&v[i], &mat_obj_cam);
 		//mat4_apply_vec4(&v[i], &mat_obj);
 		//mat4_apply_vec4(&v[i], &mat_cam);
-	}
 
-	// Light + project points
-	// (lighting them will be optional here)
-	/*
-	vec4 lite_dst = {0x2000, -0xA000, -0xA000, 0};
-	vec4_normalize_3(&lite_dst);
-	*/
-	for(i = 0; i < mesh->vc && i < VTX_MAX; i++)
-	{
+		// Project points
+#ifdef USE_GTE_RTPT
+		vp[i+0][0] = (res0_xy<<16)>>16;
+		vp[i+0][1] = (res0_xy>>16);
+		vp[i+0][2] = res0_z;
+		vp[i+1][0] = (res1_xy<<16)>>16;
+		vp[i+1][1] = (res1_xy>>16);
+		vp[i+1][2] = res1_z;
+		vp[i+2][0] = (res2_xy<<16)>>16;
+		vp[i+2][1] = (res2_xy>>16);
+		vp[i+2][2] = res2_z;
+#else
+#ifdef USE_GTE_PERSP
+		vp[i][0] = (res0_xy<<16)>>16;
+		vp[i][1] = (res0_xy>>16);
+		vp[i][2] = res0_z;
+#else
+		v[i][0] = res0_ix;
+		v[i][1] = res0_iy;
+		v[i][2] = res0_iz;
+		v[i][3] = 0x10000;
 		fixed z = (v[i][2] > 1 ? v[i][2] : 1);
 		vp[i][0] = v[i][0]*120/z;
 		vp[i][1] = v[i][1]*120/z;
 		vp[i][2] = z;
+#endif
+#endif
 		/*
 		if(vp[i][0] < -1023) vp[i][0] = -1023;
 		if(vp[i][0] >  1023) vp[i][0] =  1023;
@@ -284,10 +458,20 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 
 		// mark as "destroy this primitive" early
 		// saves on the number of checks we have to do
+		// TODO: get the RTPT version (may be unobtainable)
+#ifdef USE_GTE_RTPT
+#else
+		uint32_t gte_flag;
+		asm volatile("\tcfc2 %0, $31\n" : "=r"(gte_flag) : : );
+		if((gte_flag & 0x00006000) != 0)
+			vp[i][2] = 1;
+		/*
 		if(vp[i][0] <= -1023) vp[i][2] = 1;
 		else if(vp[i][0] >=  1023) vp[i][2] = 1;
 		else if(vp[i][1] <= -1023) vp[i][2] = 1;
 		else if(vp[i][1] >=  1023) vp[i][2] = 1;
+		*/
+#endif
 	}
 
 	// Draw mesh

@@ -84,7 +84,7 @@ static void mat4_mul_mat4_mat4(mat4 *M, mat4 *A, mat4 *B)
 	int i,j,k;
 
 	for(i = 0; i < 4; i++)
-	for(j = 0; j < 4; j++)
+	for(j = 0; j < 3; j++)
 	{
 		fixed sum = 0;
 		for(k = 0; k < 4; k++)
@@ -92,6 +92,11 @@ static void mat4_mul_mat4_mat4(mat4 *M, mat4 *A, mat4 *B)
 
 		(*M)[i][j] = sum;
 	}
+
+	// this actually does speed it up a bit
+	for(j = 0; j < 3; j++)
+		(*M)[j][3] = 0;
+	(*M)[3][3] = 0x10000;
 }
 
 static void mat4_mul_mat4_post(mat4 *M, mat4 *A)
