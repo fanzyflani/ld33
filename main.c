@@ -198,8 +198,11 @@ int main(void)
 
 	// PIRACY harms consumers
 	gpu_send_control_gp1(0x01000000);
-	gpu_send_control_gp0(0xA0000000);
+	gpu_send_control_gp0(0x02000000);
 	gpu_push_vertex(0, 0);
+	gpu_push_vertex(320, 240);
+	gpu_send_control_gp0(0xA0000000);
+	gpu_push_vertex(0, 8);
 	gpu_push_vertex(320, 240);
 
 	uint32_t colacc = 0;
@@ -226,10 +229,10 @@ int main(void)
 		}
 	}
 
-	// Kill 5 seconds while we wait for the PS1 chime to stop
-	for(i = 0; i < 50*1; i++) // PAL, fast test
-	//for(i = 0; i < 50*5; i++) // PAL
-	//for(i = 0; i < 60*5; i++) // NTSC
+	// Kill 6 seconds while we wait for the PS1 chime to stop
+	//for(i = 0; i < 50*1; i++) // PAL, fast test
+	for(i = 0; i < 50*6; i++) // PAL
+	//for(i = 0; i < 60*6; i++) // NTSC
 	{
 		while(TMR_n_COUNT(1) < 0x80) {}
 		while(TMR_n_COUNT(1) >= 0x80)
@@ -253,7 +256,7 @@ int main(void)
 	for(i = 1; i < JET_MAX; i++)
 	{
 		jet_seeds[i] = randseed;
-		for(j = 0; j < 30000; j++)
+		for(j = 0; j < 10000; j++)
 		{
 			randseed *= 1103515245U;
 			randseed += 12345U;

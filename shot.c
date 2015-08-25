@@ -79,7 +79,7 @@ static void shot_update_one(shot_s *sh)
 		{
 			// Register hit!
 			jet->health -= 5;
-			jet->hit_flash = (jet->health > 0 ? 5 : 25);
+			jet->hit_flash = (jet->health > 0 ? 5 : 50);
 
 			// Play sound
 			if(jet->health > 0 || jet == player)

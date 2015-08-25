@@ -180,9 +180,12 @@ static void game_update_frame(void)
 	gpu_send_control_gp0(0x0200007F);
 	gpu_push_vertex(12+8*4+4, 240-8-20 + screen_buffer);
 	gpu_push_vertex(bar_width, 8);
-	gpu_send_control_gp0(0x02007F00);
-	gpu_push_vertex(12+8*4+4, 240-8-20 + screen_buffer);
-	gpu_push_vertex(bar_filled, 8);
+	if(bar_filled > 0)
+	{
+		gpu_send_control_gp0(0x02007F00);
+		gpu_push_vertex(12+8*4+4, 240-8-20 + screen_buffer);
+		gpu_push_vertex(bar_filled, 8);
+	}
 
 	if(pcsxr_detected)
 		screen_print(150, 8, 0x4F4F7F, "PCSXR IS PRETTY BUGGY");

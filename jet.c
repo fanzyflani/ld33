@@ -200,6 +200,7 @@ static void jet_update(jet_s *jet)
 		applied_ry = 1<<7;
 		jet->tspd += 1<<7;
 		applied_vx = 0;
+		jet->mgun_fire = 0;
 	} else {
 		jet->rx += applied_rx;
 		jet->tspd += (applied_tspd - jet->tspd)>>4;

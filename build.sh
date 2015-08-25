@@ -3,7 +3,7 @@
 
 # REMEMBER TO CHANGE system.cnf IF YOU MODIFY EXE_NAME
 export EXE_NAME=boot
-export ISO_NAME=gm-ld33
+export ISO_NAME=Frametime-ld33-gm
 
 #echo as-dbg && mipsel-none-elf-as -G1 -o obj/head-dbg.o --defsym _LOADABLE_SIZE=0x800 head.S && \
 #echo ld-dbg && true mipsel-none-elf-gcc -msoft-float -o obj/${EXE_NAME}.dbg obj/head-dbg.o obj/main.o -L/usr/local/mipsel-none-elf/lib/soft-float/ -L/usr/local/lib/gcc/mipsel-none-elf/4.7.0/soft-float/ -lm -lc -lgcc -lnosys && \
