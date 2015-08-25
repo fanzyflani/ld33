@@ -78,11 +78,13 @@ static void game_update_frame(void)
 	int zoffs = ((player->pos[2] + fixmul(hdist, mat_icam[2][2]))>>18)-VISRANGE;
 	hmap_visx = xoffs+VISRANGE;
 	hmap_visz = zoffs+VISRANGE;
+	mat4_translate_imm3(&mat_obj, xoffs<<18, 0, zoffs<<18);
+	// translate so the GTE doesn't break
 	for(x = 0, i = 0; x < VISRANGE*2+2; x++)
 	for(z = 0; z < VISRANGE*2+2; z++, i++)
 	{
-		int x0r = (xoffs+x+0);
-		int z0r = (zoffs+z+0);
+		int x0r = (x+0);
+		int z0r = (z+0);
 		int x0 = (xoffs+x+0) & (HMAP_L-1);
 		int z0 = (zoffs+z+0) & (HMAP_L-1);
 		fixed y00 = hmap[z0][x0];
