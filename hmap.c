@@ -68,8 +68,8 @@ static void hmap_gen(void)
 	{
 		uint32_t c0 = (hmap[z<<(HMAP_POW-5)][(x+0)<<(HMAP_POW-5)]);
 		uint32_t c1 = (hmap[z<<(HMAP_POW-5)][(x+1)<<(HMAP_POW-5)]);
-		c0 = (fixsin(c0)+0x10000)>>(17-5);
-		c1 = (fixsin(c1)+0x10000)>>(17-5);
+		c0 = (fixsin(c0>>5)+0x10000)>>(17-5);
+		c1 = (fixsin(c1>>5)+0x10000)>>(17-5);
 		c0 >>= 1; c0 += 16;
 		c1 >>= 1; c1 += 16;
 		c0 *= 0x421;

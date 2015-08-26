@@ -160,7 +160,8 @@ static void game_update_frame(void)
 		// Use approximate AO
 		//
 
-		int coffs = (((x^z^(xoffs^zoffs))&1)==0 ? 0x00 : 0x2000);
+		//int coffs = (((x^z^(xoffs^zoffs))&1)==0 ? 0x00 : 0x2000);
+		int coffs = 0;
 		/*
 		mworld_c[6*i+0] = mworld_cm[mworld_i[iv+0]]+coffs;
 		mworld_c[6*i+1] = mworld_cm[mworld_i[iv+1]]+coffs;
