@@ -8,6 +8,7 @@
 	.word 0, 0
 	.word 0, 0
 	.word 0x801FF000, 0
+	/*.word 0x1F8003FC, 0*/
 	.word 0, 0
 
 	.word 0, 0

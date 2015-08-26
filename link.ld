@@ -30,12 +30,13 @@ SECTIONS
 		*(.data*)
 	}
 	.eh_frame : { *(.eh_frame) }
-	.smain : {
+	.mdebug.abi32 : { KEEP(*(.mdebug.abi32)) }
+	.smain : ALIGN(1<<11) {
 		_gp = ALIGN(16) + 0x7ff0;
 		*(.scommon*)
 		*(.sdata*)
 		. = (. + 0x7FF) & ~ 0x7FF;
-	}
+	} = 0x00000000
 	_LOADABLE_END = .;
 	_LOADABLE_SIZE = _LOADABLE_END - (_LOADABLE_START_WHEAD + 0x800);
 	_BSS_START = .;
@@ -47,7 +48,6 @@ SECTIONS
 	_BSS_END = .;
 	_end = .; PROVIDE (end = .);
 	/* Include debug crap if necessary */
-	.mdebug.abi32 : { KEEP(*(.mdebug.abi32)) }
 	.debug 0 : { *(.debug) }
 	.debug_info 0 : { *(.debug_info) }
 	.debug_abbrev 0 : { *(.debug_abbrev) }
