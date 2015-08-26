@@ -227,14 +227,17 @@ int main(void)
 		while(TMR_n_COUNT(1) >= 0x80)
 		{
 			// work around a bug in PCSXR
-			if(TMR_n_COUNT(1) >= 400)
+			if(TMR_n_COUNT(1) >= 900)
 			{
 				TMR_n_COUNT(1) = 0;
 				// considering that PCSXR doesn't even show this damn thing,
 				// we should just skip it
-				i = 100000;
-				pcsxr_detected = 1;
-				break;
+				if(i >= 3)
+				{
+					i = 100000;
+					pcsxr_detected = 1;
+					break;
+				}
 			}
 		}
 	}

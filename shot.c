@@ -46,13 +46,13 @@ static void shot_update_one(shot_s *sh)
 	sh->lifetime--;
 
 	// Move forward
-	mat4 smat;
-	mat4_load_identity(&smat);
-	mat4_rotate_x(&smat, -sh->rx);
-	mat4_rotate_y(&smat, -sh->ry);
-	sh->pos[0] += fixmulf(smat[2][0], sh->vel);
-	sh->pos[1] += fixmulf(smat[2][1], sh->vel);
-	sh->pos[2] += fixmulf(smat[2][2], sh->vel);
+	fixed xs = fixsin(sh->rx);
+	fixed xc = fixcos(sh->rx);
+	fixed ys = fixmulf(fixsin(sh->ry), xc);
+	fixed yc = fixmulf(fixcos(sh->ry), xc);
+	sh->pos[0] += fixmulf(ys, sh->vel);
+	sh->pos[1] += fixmulf(xs, sh->vel);
+	sh->pos[2] += fixmulf(yc, sh->vel);
 
 	// Check against heightmap
 	if(sh->pos[1] >= hmap_get(sh->pos[0], sh->pos[2]))
