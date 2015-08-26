@@ -64,6 +64,13 @@ static void shot_update_one(shot_s *sh)
 	{
 		jet_s *jet = &jet_list[i];
 
+		// CHEAT: Only do player if team is nonplayer
+		if(sh->team == 2)
+		{
+			jet = player;
+			i = jet_count;
+		}
+
 		// Skip friendly fire and dead jets
 		if(jet->team == sh->team || jet->health <= 0)
 			continue;
