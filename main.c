@@ -27,7 +27,7 @@ player_s s3mplayer;
 
 jet_s *player;
 extern uint8_t fsys_rawcga[];
-extern uint8_t fsys_piresy[];
+extern uint32_t fsys_piresy[];
 //extern mod_s fsys_s3m_test[];
 
 extern uint8_t end[];
@@ -215,28 +215,8 @@ int main(void)
 	gpu_push_vertex(320, 240);
 
 	uint32_t colacc = 0;
-	for(y = 0, i = 18; y < 240; y++)
-	for(x = 0; x < 320; x++)
-	{
-		int r = fsys_piresy[i++];
-		int g = fsys_piresy[i++];
-		int b = fsys_piresy[i++];
-		i++;
-
-		b >>= 3;
-		g >>= 3;
-		r >>= 3;
-
-		uint32_t rcol = (r<<10)|(g<<5)|b;
-
-		if((x&1) == 0)
-		{
-			colacc = rcol & 0xFFFF;
-		} else {
-			colacc |= (rcol<<16);
-			gpu_send_data(colacc);
-		}
-	}
+	for(i = 0; i < 320*240/2; i++)
+		gpu_send_data(fsys_piresy[i]);
 
 	// Kill 6 seconds while we wait for the PS1 chime to stop
 	for(i = 0; i < 50*1; i++) // PAL, fast test

@@ -101,7 +101,7 @@ fsys_rawcga:
 
 	.global fsys_piresy
 fsys_piresy:
-	.incbin "dat/piresy.tga"
+	.incbin "dat/piresy.bin"
 	.align 5
 
 	.global fsys_s3m_test

@@ -11,7 +11,9 @@ export ISO_NAME=Frametime
 #echo strip && mipsel-none-elf-strip -R .reginfo -R .pdr -R .text.startup -R .eh_frame -R .comment -R .gnu.attributes -R .rel.dyn obj/${EXE_NAME}.elf && \
 
 # FIXME: -O3 currently breaks
-echo cc && mipsel-none-elf-gcc -g -c -fomit-frame-pointer -fno-stack-protector -G1 -O2 -msoft-float -nostdlib -mips1 -march=3000 -o obj/main.o main.c -Wall -Wextra -Wno-unused-variable -Wno-unused-function -Wno-pointer-sign && \
+cc -o tools/piresy tools/piresy.c && \
+tools/piresy && \
+echo cc && mipsel-none-elf-gcc -g -c -fomit-frame-pointer -fno-stack-protector -G1 -O3 -msoft-float -nostdlib -mips1 -march=3000 -o obj/main.o main.c -Wall -Wextra -Wno-unused-variable -Wno-unused-function -Wno-pointer-sign && \
 echo as && mipsel-none-elf-as -g -G1 -o obj/head.o head.S && \
 echo ld && mipsel-none-elf-ld -g -T link.ld -o obj/${EXE_NAME}.elf obj/head.o obj/main.o -L/usr/local/mipsel-none-elf/lib/soft-float/ -L/usr/local/lib/gcc/mipsel-none-elf/4.7.0/soft-float/ -lm -lc -lgcc -lnosys && \
 echo objcopy && mipsel-none-elf-objcopy -O binary obj/${EXE_NAME}.elf obj/${EXE_NAME}.tmp && \
