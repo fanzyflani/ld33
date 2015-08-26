@@ -2,14 +2,20 @@
 #include <stdint.h>
 #include <math.h>
 
-#include "psx.h"
+// TODO: NTSC support (would be useful for PC and Windows)
 
+#ifdef TARGET_PC
+// TODO: make this work on a PC or a Windows machine
+
+#else
+
+#include "psx.h"
 // PCSXR tends to be a bit buggy with things even if you use FVP
 int pcsxr_detected = 0;
-
 void update_music_status(int ins, int ins_num);
-
 #define TARGET_PSX
+#endif
+
 #define F3M_FREQ 44100
 // PAL clock
 #define F3M_BUFLEN 882

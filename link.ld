@@ -48,15 +48,15 @@ SECTIONS
 	_end = .; PROVIDE (end = .);
 	/* Include debug crap if necessary */
 	.mdebug.abi32 : { KEEP(*(.mdebug.abi32)) }
-	.debug : { *(.debug) }
-	.debug_info : { *(.debug_info) }
-	.debug_abbrev : { *(.debug_abbrev) }
-	.debug_loc : { *(.debug_loc) }
-	.debug_aranges : { *(.debug_aranges) }
-	.debug_ranges : { *(.debug_ranges) }
-	.debug_line : { *(.debug_line) }
-	.debug_str : { *(.debug_str) }
-	.debug_frame : { *(.debug_frame) }
+	.debug 0 : { *(.debug) }
+	.debug_info 0 : { *(.debug_info) }
+	.debug_abbrev 0 : { *(.debug_abbrev) }
+	.debug_loc 0 : { *(.debug_loc) }
+	.debug_aranges 0 : { *(.debug_aranges) }
+	.debug_ranges 0 : { *(.debug_ranges) }
+	.debug_line 0 : { *(.debug_line) }
+	.debug_str 0 : { *(.debug_str) }
+	.debug_frame 0 : { *(.debug_frame) }
 	/DISCARD/ : {
 		*(.comment)
 	}
