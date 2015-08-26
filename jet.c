@@ -27,6 +27,8 @@ static int jet_add(fixed x, fixed y, fixed z, int health, int team, jet_ai_e ai_
 		jet_enemy_max++;
 		jet_enemy_rem++;
 	}
+
+	return idx;
 }
 
 static void jet_draw(jet_s *jet, int is_shadow)
@@ -143,29 +145,28 @@ static void jet_update(jet_s *jet)
 				applied_ry =  rotsy;
 			}
 
-			// Calculate x-dot to work out best rx
+			// Make sure we don't crash into the ground
+			// Go towards player - DO NOT FLY UPSIDE DOWN
 			const fixed rotsx = 1<<8;
+			fixed hdy = hmap_get(jet->pos[0], jet->pos[2]) - jet->pos[1];
 			fixed xs = fixsin(jet->rx);
 			fixed xc = fixcos(jet->rx);
-			fixed xsn = fixsin(jet->rx - rotsx);
-			fixed xsp = fixsin(jet->rx + rotsx);
-			fixed dotx = fixmulf(dy, xs);
-			fixed dotxn = fixmulf(dy, xsn);
-			fixed dotxp = fixmulf(dy, xsp);
-
-			// Go towards player - DO NOT FLY UPSIDE DOWN
-			if(dotxn > dotx && dotxn > dotxp && jet->rx > -0x3000)
-			{
-				applied_rx = -rotsx;
-			} else if(dotxp > dotx && jet->rx < 0x3000) {
-				applied_rx =  rotsx;
-			}
-
-			// Make sure we don't crash into the ground
-			fixed hdy = hmap_get(jet->pos[0], jet->pos[2]) - jet->pos[1];
 			if(hdy < 0x40000 && jet->rx > -0x3000) 
 			{
 				applied_rx = -rotsx;
+			} else {
+				// Calculate x-dot to work out best rx
+				fixed xsn = fixsin(jet->rx - rotsx);
+				fixed xsp = fixsin(jet->rx + rotsx);
+				fixed dotx = fixmulf(dy, xs);
+				fixed dotxn = fixmulf(dy, xsn);
+				fixed dotxp = fixmulf(dy, xsp);
+
+			   	if(dotxn > dotx && dotxn > dotxp && jet->rx > -0x3000) {
+					applied_rx = -rotsx;
+				} else if(dotxp > dotx && jet->rx < 0x3000) {
+					applied_rx =  rotsx;
+				}
 			}
 
 			// Work out if we should fire
@@ -173,7 +174,7 @@ static void jet_update(jet_s *jet)
 			vec4 av = {fixmulf(ys, xc), xs, fixmulf(yc, xc), 0x00000};
 			vec4_normalize_3(&dv);
 			fixed dotfire = vec4_dot_3(&dv, &av);
-			jet->mgun_fire = (dotfire >= 0xF000);
+			jet->mgun_fire = (dotfire >= 0xA800);
 
 			// TODO: more stuff
 		} break;

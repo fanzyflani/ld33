@@ -7,7 +7,7 @@
 	.word aaa_very_start, _LOADABLE_SIZE
 	.word 0, 0
 	.word 0, 0
-	.word 0x801FFF00, 0
+	.word 0x801FF000, 0
 	.word 0, 0
 
 	.word 0, 0

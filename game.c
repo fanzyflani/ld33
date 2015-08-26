@@ -45,7 +45,7 @@ static void game_update_frame(void)
 	if(sky < 240)
 	{
 		gpu_send_control_gp0((skyswap ? 0x021D0000 : 0x02001D00));
-		gpu_send_data(0x00000000 + (screen_buffer+sky<<16));
+		gpu_send_data(0x00000000 + ((screen_buffer+sky)<<16));
 		gpu_send_data((320) | ((240-sky)<<16));
 	}
 
@@ -85,8 +85,8 @@ static void game_update_frame(void)
 	{
 		int x0r = (x+0);
 		int z0r = (z+0);
-		int x0 = (xoffs+x+0) & (HMAP_L-1);
-		int z0 = (zoffs+z+0) & (HMAP_L-1);
+		int x0 = (xoffs+x0r) & (HMAP_L-1);
+		int z0 = (zoffs+z0r) & (HMAP_L-1);
 		fixed y00 = hmap[z0][x0];
 		vec3_set(&mworld_v[i], x0r<<18, y00, z0r<<18);
 	}
@@ -96,7 +96,17 @@ static void game_update_frame(void)
 	for(z = 0; z < VISRANGE*2+1; z++, i++)
 	{
 		int iv = i*6;
+
 		// Generate faces
+		int x0r = (x+0);
+		int z0r = (z+0);
+		int x0 = (xoffs+x0r) & (HMAP_L-1);
+		int z0 = (zoffs+z0r) & (HMAP_L-1);
+		int x1r = (x+1);
+		int z1r = (z+1);
+		int x1 = (xoffs+x1r) & (HMAP_L-1);
+		int z1 = (zoffs+z1r) & (HMAP_L-1);
+
 		// TODO: order properly and allow splits
 		mworld_i[iv+0] = (z+0)+(x+0)*(VISRANGE*2+2);
 		//mworld_i[iv+1] = (z+1)+(x+0)*(VISRANGE*2+2);
@@ -129,6 +139,30 @@ static void game_update_frame(void)
 
 		mworld_c[2*i+0] = mworld_c[2*i+1] =
 			(((x^z^xoffs^zoffs)&1) == 0 ? 0x20003F00 : 0x20005F00);
+		/*
+		fixed y00 = hmap[z0][x0];
+		fixed y01 = hmap[z0][x1];
+		fixed y10 = hmap[z1][x0];
+		fixed y11 = hmap[z1][x1];
+
+		fixed ydx0 = y01-y00;
+		fixed ydx1 = y11-y10;
+		fixed ydz0 = y10-y00;
+		fixed ydz1 = y11-y01;
+		*/
+		
+		//fixed yfc0 = fixsqrt((1<<(16+2+2)) - fixmul(ydx0,ydx0) - fixmul(ydz0,ydz0))>>4;
+		//yfc0 >>= 7;
+		/*
+		fixed yfc0 = 128-(y00>>12);
+		if(yfc0 < 0) yfc0 = 0;
+		if(yfc0 > 0xFF) yfc0 = 0xFF;
+
+		int hmc0 = yfc0<<8;
+		int hmc1 = hmc0; // TODO: split
+		mworld_c[2*i+0] = (hmc0) | (0x20<<24);
+		mworld_c[2*i+1] = (hmc1) | (0x20<<24);
+		*/
 	}
 	mworld_c[2*i] = 0;
 	mesh_draw(&mworld, MS_NOPRIO);
@@ -166,7 +200,7 @@ static void game_update_frame(void)
 	screen_print(16, 16+8*1, 0x007F7F, update_str_buf);
 	*/
 #ifdef SHOW_DEBUG
-	sprintf(update_str_buf, "vtime=%5i/314", TMR_n_COUNT(1));
+	sprintf(update_str_buf, "vtime=%5u/314", (unsigned int)TMR_n_COUNT(1));
 	screen_print(16, 16+8*2, 0x7F7F7F, update_str_buf);
 	sprintf(update_str_buf, "tris=%5i", mesh_tstat);
 	screen_print(16, 16+8*4, 0x7F7F7F, update_str_buf);
@@ -231,7 +265,7 @@ static void game_update_frame(void)
 
 	// Final vtime
 #ifdef SHOW_DEBUG
-	sprintf(update_str_buf, "ltime=%5i/314", TMR_n_COUNT(1));
+	sprintf(update_str_buf, "ltime=%5u/314", (unsigned int)TMR_n_COUNT(1));
 	screen_print(16, 16+8*3, 0x7F7F7F, update_str_buf);
 #endif
 

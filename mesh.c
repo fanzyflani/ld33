@@ -46,7 +46,7 @@ int mesh_tstat = 0;
 mat4 mat_cam, mat_obj, mat_obj_cam;
 mat4 mat_icam;
 
-#define VTX_MAX (400)
+#define VTX_MAX (1000)
 vec4 vbase[VTX_MAX];
 
 static void mesh_clear(void)
@@ -251,6 +251,7 @@ static void mesh_add_poly(const mesh_s *mesh, int ic, int ii, int flags)
 				}
 
 				pcprio[pcidx] = zsum/3;
+				//pcprio[pcidx] = zsum;
 
 			} else {
 				for(i = 0; i < 4; i++)
@@ -263,6 +264,7 @@ static void mesh_add_poly(const mesh_s *mesh, int ic, int ii, int flags)
 				}
 
 				pcprio[pcidx] = zsum/4;
+				//pcprio[pcidx] = (zsum+(zsum<<1))>>2;
 			}
 		} else {
 			for(i = 0; i < vcount; i++)
@@ -345,7 +347,7 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 #else
 	const int gte_stride = 1;
 #endif
-	for(i = 0; i < mesh->vc && i < VTX_MAX; i += gte_stride)
+	for(i = 0; i < (int)mesh->vc && i < VTX_MAX; i += gte_stride)
 	{
 		// Load vec3
 		asm volatile (

@@ -85,10 +85,10 @@ static fixed fixsqrt(fixed v)
 	fixed ret2 = 0;
 	for(i = 15; i >= 1; i--)
 	{
-		fixed tret2 = ret2 + (2<<i);
+		fixed tret2 = ret2 + (1<<(i<<1));
 		if(tret2 <= v)
 		{
-			ret += (1<<i);
+			ret += ((1<<8)<<i);
 			ret2 = tret2;
 		}
 	}

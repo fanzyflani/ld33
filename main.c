@@ -70,6 +70,9 @@ extern volatile uint8_t _BSS_END[];
 
 void isr_handler(uint32_t cause, uint32_t sr, uint32_t epc)
 {
+	(void)cause;
+	(void)sr;
+	(void)epc;
 	if((I_STAT & 0x0001) != 0)
 	{
 		vblank_triggered = 1;
@@ -313,7 +316,7 @@ int main(void)
 		TMR_n_COUNT(1) = 0;
 		for(;;)
 		{
-			const int tmr_gap = 14;
+			const uint32_t tmr_gap = 14;
 			//while(vblank_triggered == 0) {}
 			while(TMR_n_COUNT(1) < tmr_gap) {}
 			while(TMR_n_COUNT(1) >= tmr_gap)

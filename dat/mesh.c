@@ -1,7 +1,7 @@
 //
 // BUILDING
 //
-const static vec3 poly_building_v[] = {
+static const vec3 poly_building_v[] = {
 	{-0x10000, -0x38000, 0x00000},
 	{-0x10000,  0x00000, 0x00000},
 	{ 0x00000, -0x30000,-0x10000},
@@ -11,7 +11,7 @@ const static vec3 poly_building_v[] = {
 	{ 0x00000, -0x40000, 0x10000},
 	{ 0x00000,  0x00000, 0x10000},
 };
-const static uint16_t poly_building_i[] = {
+static const uint16_t poly_building_i[] = {
 	0, 6, 2, 4,
 
 	0, 2, 1, 3,
@@ -19,7 +19,7 @@ const static uint16_t poly_building_i[] = {
 	4, 6, 5, 7,
 	6, 0, 7, 1,
 };
-const static uint32_t poly_building_c[] = {
+static const uint32_t poly_building_c[] = {
 	0x28FFFFFF,
 
 	0x28CCCCCC,
@@ -39,7 +39,7 @@ mesh_s poly_building = {
 //
 // TREE1
 //
-const static vec3 poly_tree1_v[] = {
+static const vec3 poly_tree1_v[] = {
 	{ 0x00000, -0x38000, 0x00000},
 	{ 0x00000, -0x10000,-0x18000},
 	{-0x10000, -0x10000, 0x08000},
@@ -52,7 +52,7 @@ const static vec3 poly_tree1_v[] = {
 	{-0x10000/3,  0x00000, 0x08000/3},
 	{ 0x10000/3,  0x00000, 0x08000/3},
 };
-const static uint16_t poly_tree1_i[] = {
+static const uint16_t poly_tree1_i[] = {
 	1, 2, 0,
 	2, 3, 0,
 	3, 1, 0,
@@ -62,7 +62,7 @@ const static uint16_t poly_tree1_i[] = {
 	8, 9, 5, 6,
 	9, 7, 6, 4,
 };
-const static uint32_t poly_tree1_c[] = {
+static const uint32_t poly_tree1_c[] = {
 	0x2000DF00,
 	0x20008F00,
 	0x20006F00,
@@ -84,7 +84,7 @@ mesh_s poly_tree1 = {
 //
 // JET1
 //
-const static vec3 poly_jet1_v[] = {
+static const vec3 poly_jet1_v[] = {
 	{ 0x00000,  0x00000, 0x10000},
 	{-0x08000,  0x00000,-0x10000},
 	{ 0x08000,  0x00000,-0x10000},
@@ -96,7 +96,7 @@ const static vec3 poly_jet1_v[] = {
 	{ 0x18000,  0x00000,-0x13000},
 
 };
-const static uint16_t poly_jet1_i[] = {
+static const uint16_t poly_jet1_i[] = {
 	//0, 1, 2,
 	3, 0, 2,
 	3, 1, 0,
@@ -105,7 +105,7 @@ const static uint16_t poly_jet1_i[] = {
 	1, 4, 6,
 	2, 5, 7,
 };
-const static uint32_t poly_jet1_c[] = {
+static const uint32_t poly_jet1_c[] = {
 	//0xA0336699,
 	0xA055AAFF,
 	0xA04499EE,
@@ -126,16 +126,16 @@ mesh_s poly_jet1 = {
 //
 // SHOT_MGUN
 //
-const static vec3 poly_shot_mgun_v[] = {
+static const vec3 poly_shot_mgun_v[] = {
 	{ 0x00000,  0x02000, 0x20000},
 	{-0x03000,  0x02000, 0x00000},
 	{ 0x03000,  0x02000, 0x00000},
 
 };
-const static uint16_t poly_shot_mgun_i[] = {
+static const uint16_t poly_shot_mgun_i[] = {
 	0, 1, 2,
 };
-const static uint32_t poly_shot_mgun_c[] = {
+static const uint32_t poly_shot_mgun_c[] = {
 	0xA0FFFFFF,
 
 	0
