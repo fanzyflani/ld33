@@ -62,7 +62,9 @@ static void game_update_frame(void)
 	// world
 	static vec3 mworld_v[(VISRANGE*2+2)*(VISRANGE*2+2)];
 	static uint16_t mworld_i[6*(VISRANGE*2+1)*(VISRANGE*2+1)];
-	static uint32_t mworld_c[2*(VISRANGE*2+1)*(VISRANGE*2+1)+1];
+	static uint32_t mworld_c[6*(VISRANGE*2+1)*(VISRANGE*2+1)+1];
+	static uint32_t mworld_cm[(VISRANGE*2+2)*(VISRANGE*2+2)];
+	static fixed hmap_tmp[(VISRANGE*2)+2+2][(VISRANGE*2)+2+2];
 	mesh_s mworld = {
 		4,
 		(const vec3 *)mworld_v,
@@ -72,23 +74,41 @@ static void game_update_frame(void)
 
 	// TODO: correct ordering so we don't need to qsort this
 	mat4_load_identity(&mat_obj);
-#if 1
 	fixed hdist = 0xA0000;
 	int xoffs = ((player->pos[0] + fixmul(hdist, mat_icam[2][0]))>>18)-VISRANGE;
 	int zoffs = ((player->pos[2] + fixmul(hdist, mat_icam[2][2]))>>18)-VISRANGE;
 	hmap_visx = xoffs+VISRANGE;
 	hmap_visz = zoffs+VISRANGE;
 	mat4_translate_imm3(&mat_obj, xoffs<<18, 0, zoffs<<18);
+
+	for(x = -1; x < VISRANGE*2+2+1; x++)
+	for(z = -1; z < VISRANGE*2+2+1; z++)
+	{
+		int x0 = (xoffs+x) & (HMAP_L-1);
+		int z0 = (zoffs+z) & (HMAP_L-1);
+
+		hmap_tmp[z+1][x+1] = hmap[z0][x0];
+	}
+		
+
 	// translate so the GTE doesn't break
 	for(x = 0, i = 0; x < VISRANGE*2+2; x++)
 	for(z = 0; z < VISRANGE*2+2; z++, i++)
 	{
-		int x0r = (x+0);
-		int z0r = (z+0);
-		int x0 = (xoffs+x0r) & (HMAP_L-1);
-		int z0 = (zoffs+z0r) & (HMAP_L-1);
-		fixed y00 = hmap[z0][x0];
-		vec3_set(&mworld_v[i], x0r<<18, y00, z0r<<18);
+		fixed ynx = hmap_tmp[z+1][x+0];
+		fixed ynz = hmap_tmp[z+0][x+1];
+		fixed ypx = hmap_tmp[z+1][x+2];
+		fixed ypz = hmap_tmp[z+2][x+1];
+		fixed y00 = hmap_tmp[z+1][x+1];
+		fixed ysm = (ynx+ynz+ypx+ypz+2)>>2;
+		fixed col = ysm-y00;
+		col >>= 10;
+		col += 0x40;
+		if(col < 0x00) col = 0x00;
+		if(col > 0xDF) col = 0xDF;
+
+		mworld_cm[i] = (col<<8) | (0x30<<24);
+		vec3_set(&mworld_v[i], (x)<<18, y00, (z)<<18);
 	}
 	mworld.vc = i;
 
@@ -102,10 +122,6 @@ static void game_update_frame(void)
 		int z0r = (z+0);
 		int x0 = (xoffs+x0r) & (HMAP_L-1);
 		int z0 = (zoffs+z0r) & (HMAP_L-1);
-		int x1r = (x+1);
-		int z1r = (z+1);
-		int x1 = (xoffs+x1r) & (HMAP_L-1);
-		int z1 = (zoffs+z1r) & (HMAP_L-1);
 
 		// TODO: order properly and allow splits
 		mworld_i[iv+0] = (z+0)+(x+0)*(VISRANGE*2+2);
@@ -137,8 +153,22 @@ static void game_update_frame(void)
 		mworld_c[i] = 0xA8000000 | col;
 		*/
 
+		/*
 		mworld_c[2*i+0] = mworld_c[2*i+1] =
 			(((x^z^xoffs^zoffs)&1) == 0 ? 0x20003F00 : 0x20005F00);
+		*/
+
+		// Use approximate AO
+		//
+
+		int coffs = (((x^z^(xoffs^zoffs))&1)==0 ? 0x00 : 0x2000);
+		mworld_c[6*i+0] = mworld_cm[mworld_i[iv+0]]+coffs;
+		mworld_c[6*i+1] = mworld_cm[mworld_i[iv+1]]+coffs;
+		mworld_c[6*i+2] = mworld_cm[mworld_i[iv+2]]+coffs;
+		mworld_c[6*i+5] = mworld_cm[mworld_i[iv+5]]+coffs;
+		mworld_c[6*i+3] = mworld_c[6*i+2];
+		mworld_c[6*i+4] = mworld_c[6*i+1];
+
 		/*
 		fixed y00 = hmap[z0][x0];
 		fixed y01 = hmap[z0][x1];
@@ -168,7 +198,6 @@ static void game_update_frame(void)
 	mesh_draw(&mworld, MS_NOPRIO);
 	mesh_flush(0); // faster with sort disabled, and negligible graphical effect
 	//mesh_clear();
-#endif
 
 	// Shadows
 	for(i = 0; i < jet_count; i++)

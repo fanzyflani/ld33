@@ -1,9 +1,6 @@
-// disabled because of display corruption
-//define USE_DMA
-
+#define USE_DMA
 #define USE_GTE_PERSP
-
-// This requires USE_GTE_PERSP!
+// This requires USE_GTE_PERSP! (and is disabled because it's inconvenient, broken, and slower)
 //define USE_GTE_RTPT
 
 #ifdef USE_GTE_RTPT
@@ -28,8 +25,8 @@ typedef struct poly_chunk
 {
 	int len;
 	uint32_t dma_chain;
-	uint32_t cmd_list[1+4];
-	uint32_t _pad0[1];
+	uint32_t cmd_list[4+4];
+	//uint32_t _pad0[1];
 } poly_chunk_s;
 
 //int32_t *pcorder = NULL;
@@ -98,7 +95,7 @@ static void mesh_flush(int do_sort)
 			: 0xFFFFFF)
 				& 0xFFFFFF;
 
-		pclist[ri].dma_chain = ((pclist[ri].len+1)<<24) | nptr;
+		pclist[ri].dma_chain = ((pclist[ri].len)<<24) | nptr;
 
 #else
 		// FIFO
@@ -164,6 +161,11 @@ static void mesh_add_poly(const mesh_s *mesh, int ic, int ii, int flags)
 	int vcount = ((mesh->c[ic] & 0x08000000) != 0
 		? 4
 		: 3);
+	int ccount = ((mesh->c[ic] & 0x10000000) != 0
+		? vcount
+		: 1);
+	int vstep = 1;
+	if(ccount != 1) vstep++;
 
 	// Check facing + range
 	for(j = 0; j < vcount; j++)
@@ -207,7 +209,7 @@ static void mesh_add_poly(const mesh_s *mesh, int ic, int ii, int flags)
 	if(pcidx >= 0)
 	{
 		poly_chunk_s *pc = &pclist[pcidx];
-		pc->len = 1+vcount;
+		pc->len = ccount+vcount;
 		//vec4_copy(&pc->fnorm, &fnorm);
 		pc->cmd_list[0] = mesh->c[ic] & 0x7FFFFFFF;
 		if((flags & MS_SHADOW) != 0)
@@ -223,57 +225,55 @@ static void mesh_add_poly(const mesh_s *mesh, int ic, int ii, int flags)
 
 		if((flags & MS_NOPRIO) == 0)
 		{
-			if(vcount == 3)
-			{
-				/*
-				// broken, and oddly enough slower than what we have
-				asm volatile(
-					"\tmtc2 %1, $19\n"
-					"\tmtc2 %2, $18\n"
-					"\tmtc2 %3, $17\n"
-					"\tcop2 0x158002D\n" // AVSZ3
-					"\tmfc2 %0, $7\n"
-					:
-					"=r"(pcprio[pcidx])
-					:
-					"r"(vbase[l[0]][2]),
-					"r"(vbase[l[1]][2]),
-					"r"(vbase[l[2]][2])
-					:);
-				*/
-				for(i = 0; i < 3; i++)
-				{
-					zsum += vbase[l[i]][2];
-
-					pc->cmd_list[i+1] = (
-						(vbase[l[i]][0]&0xFFFF) +
-						(vbase[l[i]][1]<<16));
-				}
-
-				pcprio[pcidx] = zsum/3;
-				//pcprio[pcidx] = zsum;
-
-			} else {
-				for(i = 0; i < 4; i++)
-				{
-					zsum += vbase[l[i]][2];
-
-					pc->cmd_list[i+1] = (
-						(vbase[l[i]][0]&0xFFFF) +
-						(vbase[l[i]][1]<<16));
-				}
-
-				pcprio[pcidx] = zsum/4;
-				//pcprio[pcidx] = (zsum+(zsum<<1))>>2;
-			}
-		} else {
+			/*
+			// broken, and oddly enough slower than what we have
+			asm volatile(
+				"\tmtc2 %1, $19\n"
+				"\tmtc2 %2, $18\n"
+				"\tmtc2 %3, $17\n"
+				"\tcop2 0x158002D\n" // AVSZ3
+				"\tmfc2 %0, $7\n"
+				:
+				"=r"(pcprio[pcidx])
+				:
+				"r"(vbase[l[0]][2]),
+				"r"(vbase[l[1]][2]),
+				"r"(vbase[l[2]][2])
+				:);
+			*/
+			int cc = 1;
 			for(i = 0; i < vcount; i++)
 			{
-				pc->cmd_list[i+1] = (
+				zsum += vbase[l[i]][2];
+
+				pc->cmd_list[cc] = (
 					(vbase[l[i]][0]&0xFFFF) +
 					(vbase[l[i]][1]<<16));
+				cc += vstep;
 			}
+
+			pcprio[pcidx] = zsum/vcount;
+		} else {
+			int cc = 1;
+			for(i = 0; i < vcount; i++)
+			{
+				pc->cmd_list[cc] = (
+					(vbase[l[i]][0]&0xFFFF) +
+					(vbase[l[i]][1]<<16));
+				cc += vstep;
+			}
+
 			pcprio[pcidx] = 0;
+		}
+
+		if(ccount != 1)
+		{
+			int cc = 2;
+			for(i = 1; i < vcount; i++)
+			{
+				pc->cmd_list[cc] = mesh->c[ic+i] & 0x7FFFFFFF;
+				cc += vstep;
+			}
 		}
 	}
 }
@@ -495,9 +495,13 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 	// Draw mesh
 	gpu_send_control_gp1(0x01000000);
 	for(ic = 0, ii = 0; mesh->c[ic] != 0;
-		ii += ((mesh->c[ic++] & 0x08000000) != 0 ? 4 : 3))
+		)
 	{
 		mesh_add_poly(mesh, ic, ii, flags);
+		int vcount = ((mesh->c[ic] & 0x08000000) != 0 ? 4 : 3);
+		int ccount = ((mesh->c[ic] & 0x10000000) != 0 ? vcount : 1);
+		ii += vcount;
+		ic += ccount;
 	}
 }
 
