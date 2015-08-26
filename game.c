@@ -62,7 +62,7 @@ static void game_update_frame(void)
 	// world
 	static vec3 mworld_v[(VISRANGE*2+2)*(VISRANGE*2+2)];
 	static uint16_t mworld_i[6*(VISRANGE*2+1)*(VISRANGE*2+1)];
-	static uint32_t mworld_c[6*(VISRANGE*2+1)*(VISRANGE*2+1)+1];
+	static uint32_t mworld_c[6*2*(VISRANGE*2+1)*(VISRANGE*2+1)+1];
 	static uint32_t mworld_cm[(VISRANGE*2+2)*(VISRANGE*2+2)];
 	static fixed hmap_tmp[(VISRANGE*2)+2+2][(VISRANGE*2)+2+2];
 	mesh_s mworld = {
@@ -89,7 +89,6 @@ static void game_update_frame(void)
 
 		hmap_tmp[z+1][x+1] = hmap[z0][x0];
 	}
-		
 
 	// translate so the GTE doesn't break
 	for(x = 0, i = 0; x < VISRANGE*2+2; x++)
@@ -107,7 +106,7 @@ static void game_update_frame(void)
 		if(col < 0x00) col = 0x00;
 		if(col > 0xDF) col = 0xDF;
 
-		mworld_cm[i] = (col<<8) | (0x30<<24);
+		mworld_cm[i] = (col<<8) | (0x34<<24);
 		vec3_set(&mworld_v[i], (x)<<18, y00, (z)<<18);
 	}
 	mworld.vc = i;
@@ -130,9 +129,9 @@ static void game_update_frame(void)
 		//mworld_i[iv+5] = (z+1)+(x+1)*(VISRANGE*2+2);
 		mworld_i[iv+1] = mworld_i[iv+0]+1;
 		mworld_i[iv+2] = mworld_i[iv+0]+(VISRANGE*2+2);
-		mworld_i[iv+5] = mworld_i[iv+2]+1;
-		mworld_i[iv+4] = mworld_i[iv+1];
-		mworld_i[iv+3] = mworld_i[iv+2];
+		mworld_i[iv+3] = mworld_i[iv+2]+1;
+		mworld_i[iv+5] = mworld_i[iv+1];
+		mworld_i[iv+4] = mworld_i[iv+2];
 
 		// would need gouraud shading for this to look any good
 		/*
@@ -162,12 +161,30 @@ static void game_update_frame(void)
 		//
 
 		int coffs = (((x^z^(xoffs^zoffs))&1)==0 ? 0x00 : 0x2000);
+		/*
 		mworld_c[6*i+0] = mworld_cm[mworld_i[iv+0]]+coffs;
 		mworld_c[6*i+1] = mworld_cm[mworld_i[iv+1]]+coffs;
 		mworld_c[6*i+2] = mworld_cm[mworld_i[iv+2]]+coffs;
-		mworld_c[6*i+5] = mworld_cm[mworld_i[iv+5]]+coffs;
-		mworld_c[6*i+3] = mworld_c[6*i+2];
-		mworld_c[6*i+4] = mworld_c[6*i+1];
+		mworld_c[6*i+3] = mworld_cm[mworld_i[iv+3]]+coffs;
+		mworld_c[6*i+4] = mworld_c[6*i+2];
+		mworld_c[6*i+5] = mworld_c[6*i+1];
+		*/
+
+		mworld_c[12*i+0] = mworld_cm[mworld_i[iv+0]]+coffs;
+		mworld_c[12*i+1] = mworld_cm[mworld_i[iv+1]]+coffs;
+		mworld_c[12*i+2] = mworld_cm[mworld_i[iv+2]]+coffs;
+		mworld_c[12*i+6] = mworld_cm[mworld_i[iv+3]]+coffs;
+		mworld_c[12*i+7] = mworld_c[12*i+2];
+		mworld_c[12*i+8] = mworld_c[12*i+1];
+
+		int clut = 0x0000;
+		int texpage = 0x0708;
+		mworld_c[12*i+3+0] = 0x0000;
+		mworld_c[12*i+3+1] = 0x0020 | (texpage<<16);
+		mworld_c[12*i+3+2] = 0x2000;
+		mworld_c[12*i+3+6] = 0x2020;
+		mworld_c[12*i+3+7] = mworld_c[12*i+3+2] | (texpage<<16);
+		mworld_c[12*i+3+8] = mworld_c[12*i+3+1];
 
 		/*
 		fixed y00 = hmap[z0][x0];
@@ -194,7 +211,7 @@ static void game_update_frame(void)
 		mworld_c[2*i+1] = (hmc1) | (0x20<<24);
 		*/
 	}
-	mworld_c[2*i] = 0;
+	mworld_c[12*i] = 0;
 	mesh_draw(&mworld, MS_NOPRIO);
 	mesh_flush(0); // faster with sort disabled, and negligible graphical effect
 	//mesh_clear();

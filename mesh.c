@@ -25,7 +25,7 @@ typedef struct poly_chunk
 {
 	int len;
 	uint32_t dma_chain;
-	uint32_t cmd_list[4+4];
+	uint32_t cmd_list[4+4+4];
 	//uint32_t _pad0[1];
 } poly_chunk_s;
 
@@ -164,8 +164,14 @@ static void mesh_add_poly(const mesh_s *mesh, int ic, int ii, int flags)
 	int ccount = ((mesh->c[ic] & 0x10000000) != 0
 		? vcount
 		: 1);
+	int tcount = ((mesh->c[ic] & 0x04000000) != 0
+		? vcount
+		: 0);
+
 	int vstep = 1;
 	if(ccount != 1) vstep++;
+	int toffs = vstep;
+	if(tcount != 0) vstep++;
 
 	// Check facing + range
 	for(j = 0; j < vcount; j++)
@@ -209,17 +215,36 @@ static void mesh_add_poly(const mesh_s *mesh, int ic, int ii, int flags)
 	if(pcidx >= 0)
 	{
 		poly_chunk_s *pc = &pclist[pcidx];
-		pc->len = ccount+vcount;
+		pc->len = ccount+vcount+tcount;
 		//vec4_copy(&pc->fnorm, &fnorm);
 		pc->cmd_list[0] = mesh->c[ic] & 0x7FFFFFFF;
+
+		if(ccount != 1)
+		{
+			int cc = vstep;
+			for(i = 1; i < vcount; i++)
+			{
+				pc->cmd_list[cc] = mesh->c[ic+i] & 0x7FFFFFFF;
+				cc += vstep;
+			}
+		}
+
+		if(tcount != 0)
+		{
+			for(i = 0; i < tcount; i++)
+				pc->cmd_list[i*vstep+toffs] = mesh->c[ic+ccount+i];
+		}
+
 		if((flags & MS_SHADOW) != 0)
 		{
 			pc->cmd_list[0] |= 0x02000000;
-			pc->cmd_list[0] &= 0xFF000000;
+			for(i = 0; i < ccount; i++)
+				pc->cmd_list[i*vstep] &= 0xFF000000;
 		}
 		else if((flags & MS_FLASH) != 0)
 		{
-			pc->cmd_list[0] |= 0x00FFFFFF;
+			for(i = 0; i < ccount; i++)
+				pc->cmd_list[i*vstep] |= 0x00FFFFFF;
 		}
 		fixed zsum = 0;
 
@@ -265,16 +290,6 @@ static void mesh_add_poly(const mesh_s *mesh, int ic, int ii, int flags)
 
 			pcprio[pcidx] = 0;
 		}
-
-		if(ccount != 1)
-		{
-			int cc = 2;
-			for(i = 1; i < vcount; i++)
-			{
-				pc->cmd_list[cc] = mesh->c[ic+i] & 0x7FFFFFFF;
-				cc += vstep;
-			}
-		}
 	}
 }
 
@@ -282,6 +297,10 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 {
 	volatile int lag;
 	int i, j;
+
+	// Set texpage + mask
+	gpu_send_control_gp0(0xE1000708);
+	gpu_draw_texmask(32, 32, 0, 64);
 
 	// Combine matrices
 	//mat4_mul_mat4_mat4(&mat_obj_cam, &mat_cam, &mat_obj);
@@ -500,8 +519,9 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 		mesh_add_poly(mesh, ic, ii, flags);
 		int vcount = ((mesh->c[ic] & 0x08000000) != 0 ? 4 : 3);
 		int ccount = ((mesh->c[ic] & 0x10000000) != 0 ? vcount : 1);
+		int tcount = ((mesh->c[ic] & 0x04000000) != 0 ? vcount : 0);
 		ii += vcount;
-		ic += ccount;
+		ic += ccount+tcount;
 	}
 }
 

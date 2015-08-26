@@ -59,6 +59,24 @@ static void hmap_gen(void)
 		}
 	}
 
+	// Add heightmap as texture
+	gpu_send_control_gp0(0xA0000000);
+	gpu_send_data((512)|(64<<16));
+	gpu_send_data((32)|(32<<16));
+	for(z = 0; z < 32; z++)
+	for(x = 0; x < 32; x+=2)
+	{
+		uint32_t c0 = (hmap[z<<(HMAP_POW-5)][(x+0)<<(HMAP_POW-5)]);
+		uint32_t c1 = (hmap[z<<(HMAP_POW-5)][(x+1)<<(HMAP_POW-5)]);
+		c0 = (fixsin(c0)+0x10000)>>(17-5);
+		c1 = (fixsin(c1)+0x10000)>>(17-5);
+		c0 >>= 1; c0 += 16;
+		c1 >>= 1; c1 += 16;
+		c0 *= 0x421;
+		c1 *= 0x421;
+		gpu_push_vertex(c0, c1);
+	}
+
 	// Place hotspots
 	bx = 0;
 	bz = 0;

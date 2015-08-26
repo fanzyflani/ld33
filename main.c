@@ -214,7 +214,6 @@ int main(void)
 	gpu_push_vertex(0, 8);
 	gpu_push_vertex(320, 240);
 
-	uint32_t colacc = 0;
 	for(i = 0; i < 320*240/2; i++)
 		gpu_send_data(fsys_piresy[i]);
 

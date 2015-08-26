@@ -111,8 +111,8 @@ static const uint32_t poly_jet1_c[] = {
 	0xA04499EE,
 	0xA0EE9944,
 
-	0xA055AAFF,
-	0xA04499EE,
+	0xB03388DD, 0xB03388DD, 0xB055AAFF,
+	0xB02877CC, 0xB02877CC, 0xB04499EE,
 
 	0
 };
