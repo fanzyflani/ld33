@@ -4,6 +4,20 @@
 
 void game_init(void);
 
+static vec3 mworld_v[(VISRANGE*2+2)*(VISRANGE*2+2)];
+static uint16_t mworld_i[6*(VISRANGE*2+1)*(VISRANGE*2+1)];
+static uint32_t mworld_c[6*2*(VISRANGE*2+1)*(VISRANGE*2+1)+1];
+static uint32_t mworld_cm[(VISRANGE*2+2)*(VISRANGE*2+2)];
+static fixed hmap_tmp[(VISRANGE*2)+2+2][(VISRANGE*2)+2+2];
+static mesh_s mworld = {
+	4,
+	(const vec3 *)mworld_v,
+	mworld_i,
+	mworld_c,
+};
+static int mworld_lxoffs = -19999;
+static int mworld_lzoffs = -19999;
+
 static void game_update_frame(void)
 {
 	volatile int lag;
@@ -60,17 +74,6 @@ static void game_update_frame(void)
 	mesh_clear();
 
 	// world
-	static vec3 mworld_v[(VISRANGE*2+2)*(VISRANGE*2+2)];
-	static uint16_t mworld_i[6*(VISRANGE*2+1)*(VISRANGE*2+1)];
-	static uint32_t mworld_c[6*2*(VISRANGE*2+1)*(VISRANGE*2+1)+1];
-	static uint32_t mworld_cm[(VISRANGE*2+2)*(VISRANGE*2+2)];
-	static fixed hmap_tmp[(VISRANGE*2)+2+2][(VISRANGE*2)+2+2];
-	mesh_s mworld = {
-		4,
-		(const vec3 *)mworld_v,
-		mworld_i,
-		mworld_c,
-	};
 
 	// TODO: correct ordering so we don't need to qsort this
 	mat4_load_identity(&mat_obj);
@@ -81,138 +84,146 @@ static void game_update_frame(void)
 	hmap_visz = zoffs+VISRANGE;
 	mat4_translate_imm3(&mat_obj, xoffs<<18, 0, zoffs<<18);
 
-	for(x = -1; x < VISRANGE*2+2+1; x++)
-	for(z = -1; z < VISRANGE*2+2+1; z++)
+	if(mworld_lxoffs != xoffs || mworld_lzoffs != zoffs)
 	{
-		int x0 = (xoffs+x) & (HMAP_L-1);
-		int z0 = (zoffs+z) & (HMAP_L-1);
+		mworld_lxoffs = xoffs;
+		mworld_lzoffs = zoffs;
 
-		hmap_tmp[z+1][x+1] = hmap[z0][x0];
+		for(x = -1; x < VISRANGE*2+2+1; x++)
+		for(z = -1; z < VISRANGE*2+2+1; z++)
+		{
+			int x0 = (xoffs+x) & (HMAP_L-1);
+			int z0 = (zoffs+z) & (HMAP_L-1);
+
+			hmap_tmp[z+1][x+1] = hmap[z0][x0];
+		}
+
+		// translate so the GTE doesn't break
+		for(x = 0, i = 0; x < VISRANGE*2+2; x++)
+		for(z = 0; z < VISRANGE*2+2; z++, i++)
+		{
+			fixed ynx = hmap_tmp[z+1][x+0];
+			fixed ynz = hmap_tmp[z+0][x+1];
+			fixed ypx = hmap_tmp[z+1][x+2];
+			fixed ypz = hmap_tmp[z+2][x+1];
+			fixed y00 = hmap_tmp[z+1][x+1];
+			fixed ysm = (ynx+ynz+ypx+ypz+2)>>2;
+			fixed col = ysm-y00;
+			col >>= 10;
+			col += 0x40;
+			if(col < 0x00) col = 0x00;
+			if(col > 0xDF) col = 0xDF;
+
+			mworld_cm[i] = (col<<8) | (0x34<<24);
+			vec3_set(&mworld_v[i], (x)<<18, y00, (z)<<18);
+		}
+		mworld.vc = i;
+
+		for(x = 0, i = 0; x < VISRANGE*2+1; x++)
+		for(z = 0; z < VISRANGE*2+1; z++, i++)
+		{
+			int iv = i*6;
+
+			// Generate faces
+			int x0r = (x+0);
+			int z0r = (z+0);
+			int x0 = (xoffs+x0r) & (HMAP_L-1);
+			int z0 = (zoffs+z0r) & (HMAP_L-1);
+
+			// TODO: order properly and allow splits
+			mworld_i[iv+0] = (z+0)+(x+0)*(VISRANGE*2+2);
+			//mworld_i[iv+1] = (z+1)+(x+0)*(VISRANGE*2+2);
+			//mworld_i[iv+2] = (z+0)+(x+1)*(VISRANGE*2+2);
+			//mworld_i[iv+5] = (z+1)+(x+1)*(VISRANGE*2+2);
+			mworld_i[iv+1] = mworld_i[iv+0]+1;
+			mworld_i[iv+2] = mworld_i[iv+0]+(VISRANGE*2+2);
+			mworld_i[iv+3] = mworld_i[iv+2]+1;
+			mworld_i[iv+5] = mworld_i[iv+1];
+			mworld_i[iv+4] = mworld_i[iv+2];
+
+			// would need gouraud shading for this to look any good
+			/*
+			fixed y00 = mworld_v[mworld_i[i*4+0]][1];
+			fixed y01 = mworld_v[mworld_i[i*4+1]][1];
+			fixed y10 = mworld_v[mworld_i[i*4+2]][1];
+			fixed y11 = mworld_v[mworld_i[i*4+3]][1];
+
+			// Do a cross product and normalise
+			fixed yd0 = y01-y00;
+			fixed yd1 = y10-y00;
+			const fixed ydz2 = (1<<16);
+			fixed ydlen = fixsqrt(fixmulf(yd0, yd0) + fixmulf(yd1, yd1) + ydz2);
+			fixed ydilen = fixdiv(0x4000, ydlen);
+			if(ydilen > 0x10000) ydilen = 0x10000;
+			uint32_t col = (ydilen * 0xFF)>>16;
+			col <<= 8;
+			mworld_c[i] = 0xA8000000 | col;
+			*/
+
+			/*
+			mworld_c[2*i+0] = mworld_c[2*i+1] =
+				(((x^z^xoffs^zoffs)&1) == 0 ? 0x20003F00 : 0x20005F00);
+			*/
+
+			// Use approximate AO
+			//
+
+			//int coffs = (((x^z^(xoffs^zoffs))&1)==0 ? 0x00 : 0x2000);
+			int coffs = 0;
+			/*
+			mworld_c[6*i+0] = mworld_cm[mworld_i[iv+0]]+coffs;
+			mworld_c[6*i+1] = mworld_cm[mworld_i[iv+1]]+coffs;
+			mworld_c[6*i+2] = mworld_cm[mworld_i[iv+2]]+coffs;
+			mworld_c[6*i+3] = mworld_cm[mworld_i[iv+3]]+coffs;
+			mworld_c[6*i+4] = mworld_c[6*i+2];
+			mworld_c[6*i+5] = mworld_c[6*i+1];
+			*/
+
+			mworld_c[12*i+0] = mworld_cm[mworld_i[iv+0]]+coffs;
+			mworld_c[12*i+1] = mworld_cm[mworld_i[iv+1]]+coffs;
+			mworld_c[12*i+2] = mworld_cm[mworld_i[iv+2]]+coffs;
+			mworld_c[12*i+6] = mworld_cm[mworld_i[iv+3]]+coffs;
+			mworld_c[12*i+7] = mworld_c[12*i+2];
+			mworld_c[12*i+8] = mworld_c[12*i+1];
+
+			int clut = 0x0000;
+			int texpage = 0x0708;
+			mworld_c[12*i+3+0] = 0x0000;
+			mworld_c[12*i+3+1] = 0x0020 | (texpage<<16);
+			mworld_c[12*i+3+2] = 0x2000;
+			mworld_c[12*i+3+6] = 0x2020;
+			mworld_c[12*i+3+7] = mworld_c[12*i+3+2] | (texpage<<16);
+			mworld_c[12*i+3+8] = mworld_c[12*i+3+1];
+
+			/*
+			fixed y00 = hmap[z0][x0];
+			fixed y01 = hmap[z0][x1];
+			fixed y10 = hmap[z1][x0];
+			fixed y11 = hmap[z1][x1];
+
+			fixed ydx0 = y01-y00;
+			fixed ydx1 = y11-y10;
+			fixed ydz0 = y10-y00;
+			fixed ydz1 = y11-y01;
+			*/
+			
+			//fixed yfc0 = fixsqrt((1<<(16+2+2)) - fixmul(ydx0,ydx0) - fixmul(ydz0,ydz0))>>4;
+			//yfc0 >>= 7;
+			/*
+			fixed yfc0 = 128-(y00>>12);
+			if(yfc0 < 0) yfc0 = 0;
+			if(yfc0 > 0xFF) yfc0 = 0xFF;
+
+			int hmc0 = yfc0<<8;
+			int hmc1 = hmc0; // TODO: split
+			mworld_c[2*i+0] = (hmc0) | (0x20<<24);
+			mworld_c[2*i+1] = (hmc1) | (0x20<<24);
+			*/
+		}
+		mworld_c[12*i] = 0;
+		//screen_print(16, 16+8*7, 0x7F7F7F, "WORLD UPDATE");
 	}
 
-	// translate so the GTE doesn't break
-	for(x = 0, i = 0; x < VISRANGE*2+2; x++)
-	for(z = 0; z < VISRANGE*2+2; z++, i++)
-	{
-		fixed ynx = hmap_tmp[z+1][x+0];
-		fixed ynz = hmap_tmp[z+0][x+1];
-		fixed ypx = hmap_tmp[z+1][x+2];
-		fixed ypz = hmap_tmp[z+2][x+1];
-		fixed y00 = hmap_tmp[z+1][x+1];
-		fixed ysm = (ynx+ynz+ypx+ypz+2)>>2;
-		fixed col = ysm-y00;
-		col >>= 10;
-		col += 0x40;
-		if(col < 0x00) col = 0x00;
-		if(col > 0xDF) col = 0xDF;
-
-		mworld_cm[i] = (col<<8) | (0x34<<24);
-		vec3_set(&mworld_v[i], (x)<<18, y00, (z)<<18);
-	}
-	mworld.vc = i;
-
-	for(x = 0, i = 0; x < VISRANGE*2+1; x++)
-	for(z = 0; z < VISRANGE*2+1; z++, i++)
-	{
-		int iv = i*6;
-
-		// Generate faces
-		int x0r = (x+0);
-		int z0r = (z+0);
-		int x0 = (xoffs+x0r) & (HMAP_L-1);
-		int z0 = (zoffs+z0r) & (HMAP_L-1);
-
-		// TODO: order properly and allow splits
-		mworld_i[iv+0] = (z+0)+(x+0)*(VISRANGE*2+2);
-		//mworld_i[iv+1] = (z+1)+(x+0)*(VISRANGE*2+2);
-		//mworld_i[iv+2] = (z+0)+(x+1)*(VISRANGE*2+2);
-		//mworld_i[iv+5] = (z+1)+(x+1)*(VISRANGE*2+2);
-		mworld_i[iv+1] = mworld_i[iv+0]+1;
-		mworld_i[iv+2] = mworld_i[iv+0]+(VISRANGE*2+2);
-		mworld_i[iv+3] = mworld_i[iv+2]+1;
-		mworld_i[iv+5] = mworld_i[iv+1];
-		mworld_i[iv+4] = mworld_i[iv+2];
-
-		// would need gouraud shading for this to look any good
-		/*
-		fixed y00 = mworld_v[mworld_i[i*4+0]][1];
-		fixed y01 = mworld_v[mworld_i[i*4+1]][1];
-		fixed y10 = mworld_v[mworld_i[i*4+2]][1];
-		fixed y11 = mworld_v[mworld_i[i*4+3]][1];
-
-		// Do a cross product and normalise
-		fixed yd0 = y01-y00;
-		fixed yd1 = y10-y00;
-		const fixed ydz2 = (1<<16);
-		fixed ydlen = fixsqrt(fixmulf(yd0, yd0) + fixmulf(yd1, yd1) + ydz2);
-		fixed ydilen = fixdiv(0x4000, ydlen);
-		if(ydilen > 0x10000) ydilen = 0x10000;
-		uint32_t col = (ydilen * 0xFF)>>16;
-		col <<= 8;
-		mworld_c[i] = 0xA8000000 | col;
-		*/
-
-		/*
-		mworld_c[2*i+0] = mworld_c[2*i+1] =
-			(((x^z^xoffs^zoffs)&1) == 0 ? 0x20003F00 : 0x20005F00);
-		*/
-
-		// Use approximate AO
-		//
-
-		//int coffs = (((x^z^(xoffs^zoffs))&1)==0 ? 0x00 : 0x2000);
-		int coffs = 0;
-		/*
-		mworld_c[6*i+0] = mworld_cm[mworld_i[iv+0]]+coffs;
-		mworld_c[6*i+1] = mworld_cm[mworld_i[iv+1]]+coffs;
-		mworld_c[6*i+2] = mworld_cm[mworld_i[iv+2]]+coffs;
-		mworld_c[6*i+3] = mworld_cm[mworld_i[iv+3]]+coffs;
-		mworld_c[6*i+4] = mworld_c[6*i+2];
-		mworld_c[6*i+5] = mworld_c[6*i+1];
-		*/
-
-		mworld_c[12*i+0] = mworld_cm[mworld_i[iv+0]]+coffs;
-		mworld_c[12*i+1] = mworld_cm[mworld_i[iv+1]]+coffs;
-		mworld_c[12*i+2] = mworld_cm[mworld_i[iv+2]]+coffs;
-		mworld_c[12*i+6] = mworld_cm[mworld_i[iv+3]]+coffs;
-		mworld_c[12*i+7] = mworld_c[12*i+2];
-		mworld_c[12*i+8] = mworld_c[12*i+1];
-
-		int clut = 0x0000;
-		int texpage = 0x0708;
-		mworld_c[12*i+3+0] = 0x0000;
-		mworld_c[12*i+3+1] = 0x0020 | (texpage<<16);
-		mworld_c[12*i+3+2] = 0x2000;
-		mworld_c[12*i+3+6] = 0x2020;
-		mworld_c[12*i+3+7] = mworld_c[12*i+3+2] | (texpage<<16);
-		mworld_c[12*i+3+8] = mworld_c[12*i+3+1];
-
-		/*
-		fixed y00 = hmap[z0][x0];
-		fixed y01 = hmap[z0][x1];
-		fixed y10 = hmap[z1][x0];
-		fixed y11 = hmap[z1][x1];
-
-		fixed ydx0 = y01-y00;
-		fixed ydx1 = y11-y10;
-		fixed ydz0 = y10-y00;
-		fixed ydz1 = y11-y01;
-		*/
-		
-		//fixed yfc0 = fixsqrt((1<<(16+2+2)) - fixmul(ydx0,ydx0) - fixmul(ydz0,ydz0))>>4;
-		//yfc0 >>= 7;
-		/*
-		fixed yfc0 = 128-(y00>>12);
-		if(yfc0 < 0) yfc0 = 0;
-		if(yfc0 > 0xFF) yfc0 = 0xFF;
-
-		int hmc0 = yfc0<<8;
-		int hmc1 = hmc0; // TODO: split
-		mworld_c[2*i+0] = (hmc0) | (0x20<<24);
-		mworld_c[2*i+1] = (hmc1) | (0x20<<24);
-		*/
-	}
-	mworld_c[12*i] = 0;
 	mesh_draw(&mworld, MS_NOPRIO);
 	mesh_flush(0); // faster with sort disabled, and negligible graphical effect
 	//mesh_clear();
