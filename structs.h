@@ -1,5 +1,5 @@
 typedef int fixed;
-typedef fixed vec3[4];
+typedef fixed vec3[3];
 typedef fixed vec4[4];
 typedef vec4 mat4[4];
 

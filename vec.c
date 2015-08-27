@@ -5,6 +5,17 @@ static void vec3_set(vec3 *v, fixed x, fixed y, fixed z)
 	(*v)[2] = z;
 }
 
+static void vec3_copy(vec3 *v, vec3 *a)
+{
+	memcpy((*v), (*a), sizeof(vec3));
+}
+
+static void vec4_copy_from_vec3(vec4 *v, vec3 *a)
+{
+	memcpy((*v), (*a), sizeof(vec3));
+	(*v)[3] = 0x10000;
+}
+
 static void vec4_copy(vec4 *v, vec4 *a)
 {
 	memcpy((*v), (*a), sizeof(vec4));
@@ -132,6 +143,13 @@ static void mat4_translate_vec4(mat4 *M, vec4 *v)
 	(*M)[3][0] += (*v)[0];
 	(*M)[3][1] += (*v)[1];
 	(*M)[3][2] += (*v)[2];
+}
+
+static void mat4_translate_vec3_neg(mat4 *M, vec3 *v)
+{
+	(*M)[3][0] -= (*v)[0];
+	(*M)[3][1] -= (*v)[1];
+	(*M)[3][2] -= (*v)[2];
 }
 
 static void mat4_translate_vec4_neg(mat4 *M, vec4 *v)

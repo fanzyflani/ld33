@@ -16,7 +16,7 @@ static int jet_add(fixed x, fixed y, fixed z, int health, int team, jet_ai_e ai_
 	jet->pos[0] = x;
 	jet->pos[1] = y;
 	jet->pos[2] = z;
-	jet->pos[3] = 0x10000;
+	//jet->pos[3] = 0x10000;
 	jet->health = health;
 	jet->team = team;
 	jet->tspd = 1<<13;
@@ -52,7 +52,7 @@ static void jet_draw(jet_s *jet, int is_shadow)
 	mat4_rotate_y(&mat_obj, -jet->ry);
 	if(jet->crashed >= 1)
 		mat4_scale(&mat_obj, (64-(jet->crashed-1))<<(16-6));
-	mat4_translate_vec4(&mat_obj, &jet->pos);
+	mat4_translate_vec3(&mat_obj, &jet->pos);
 
 	if(is_shadow)
 	{

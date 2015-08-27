@@ -19,7 +19,7 @@ static void game_update_frame(void)
 
 	// Build matrices
 	mat4_load_identity(&mat_cam);
-	mat4_translate_vec4_neg(&mat_cam, &player->pos);
+	mat4_translate_vec3_neg(&mat_cam, &player->pos);
 	mat4_rotate_y(&mat_cam, player->ry);
 	//mat4_rotate_x(&mat_cam, player->rx);
 	mat4_translate_imm3(&mat_cam, 0, 0, 0x40000);

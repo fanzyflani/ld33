@@ -7,7 +7,7 @@ shot_s shot_list[SHOT_MAX];
 int shot_head = 0;
 int shot_tail = 0;
 
-static void shot_fire(fixed rx, fixed ry, vec4 *pos, fixed vel, uint8_t team)
+static void shot_fire(fixed rx, fixed ry, vec3 *pos, fixed vel, uint8_t team)
 {
 	// Get new shot
 	shot_s *sh = &shot_list[shot_head];
@@ -26,7 +26,7 @@ static void shot_fire(fixed rx, fixed ry, vec4 *pos, fixed vel, uint8_t team)
 	}
 
 	// Fill in fields
-	vec4_copy(&sh->pos, pos);
+	vec4_copy_from_vec3(&sh->pos, pos);
 	sh->rx = rx;
 	sh->ry = ry;
 	sh->vel = vel;

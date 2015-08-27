@@ -37,6 +37,7 @@ volatile void *_current_brk = (volatile void *)end;
 #include "vec.c"
 
 #include "gpu.c"
+#include "gte.c"
 #include "joy.c"
 
 #include "hmap.c"
