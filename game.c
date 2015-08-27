@@ -56,6 +56,7 @@ static void game_update_frame(void)
 
 	// Clear screen
 	//gpu_send_control_gp0((screen_buffer == 0 ? 0x027D7D7D : 0x024D4D4D));
+	/*
 	if(sky < 240)
 	{
 		gpu_send_control_gp0((skyswap ? 0x021D0000 : 0x02001D00));
@@ -69,6 +70,28 @@ static void game_update_frame(void)
 		gpu_send_data(0x00000000 + (screen_buffer<<16));
 		gpu_send_data((320) | ((sky)<<16));
 	}
+	*/
+
+	// Draw sky
+	gpu_send_control_gp0(0xE1000609);
+	gpu_draw_texmask(64, 64, 0, 64);
+
+	int sto = (((player->ry&0x7FFF))>>(15-6));
+	/*
+	gpu_send_control_gp0(0x2C7F7F7F);
+	gpu_push_vertex(-160, -120); gpu_send_data((0x00000000+sto) | (((63<<6)|(576>>4))<<16));
+	gpu_push_vertex( 160, -120); gpu_send_data((0x00000050+sto) | (0x0609<<16));
+	gpu_push_vertex(-160,   80); gpu_send_data((0x00003F00+sto));
+	gpu_push_vertex( 160,   80); gpu_send_data((0x00003F50+sto));
+	*/
+
+	const int sxo = 0;//1;
+	const int syo = 0;//2;//240/64/2;
+	gpu_send_control_gp0(0x2E7F7F7F);
+	gpu_push_vertex(-160+sxo, -120+syo); gpu_send_data((0x00000000+sto) | (((63<<6)|(576>>4))<<16));
+	gpu_push_vertex( 160+sxo, -120+syo); gpu_send_data((0x00000050+sto) | (0x0609<<16));
+	gpu_push_vertex(-160+sxo,  120+syo); gpu_send_data((0x00003F00+sto));
+	gpu_push_vertex( 160+sxo,  120+syo); gpu_send_data((0x00003F50+sto));
 
 	// Draw geometry
 	mesh_clear();

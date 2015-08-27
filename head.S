@@ -105,6 +105,11 @@ fsys_piresy:
 	.incbin "dat/piresy.bin"
 	.align 5
 
+	.global fsys_skydome
+fsys_skydome:
+	.incbin "dat/skydome.bin"
+	.align 5
+
 	.global fsys_s3m_test
 fsys_s3m_test:
 	.incbin "dat/33-t1.s3m"

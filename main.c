@@ -28,6 +28,7 @@ player_s s3mplayer;
 jet_s *player;
 extern uint8_t fsys_rawcga[];
 extern uint32_t fsys_piresy[];
+extern uint32_t fsys_skydome[];
 //extern mod_s fsys_s3m_test[];
 
 extern uint8_t end[];
@@ -217,6 +218,19 @@ int main(void)
 
 	for(i = 0; i < 320*240/2; i++)
 		gpu_send_data(fsys_piresy[i]);
+	
+	// Load skydome
+	gpu_send_control_gp0(0xA0000000);
+	gpu_push_vertex(576, 63);
+	gpu_push_vertex(16, 1);
+	for(i = 0; i < 16*2/4; i++)
+		gpu_send_data(fsys_skydome[i] | 0x80008000);
+
+	gpu_send_control_gp0(0xA0000000);
+	gpu_push_vertex(576, 64);
+	gpu_push_vertex(16, 64);
+	for(i = 0; i < 64*64/8; i++)
+		gpu_send_data(fsys_skydome[i+16*2/4]);
 
 	// Kill 6 seconds while we wait for the PS1 chime to stop
 	for(i = 0; i < 50*1; i++) // PAL, fast test
