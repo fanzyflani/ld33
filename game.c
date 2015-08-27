@@ -18,6 +18,8 @@ static mesh_s mworld = {
 static int mworld_lxoffs = -19999;
 static int mworld_lzoffs = -19999;
 
+int sdblur = 0;
+
 static void game_update_frame(void)
 {
 	volatile int lag;
@@ -76,7 +78,10 @@ static void game_update_frame(void)
 	gpu_send_control_gp0(0xE1000609);
 	gpu_draw_texmask(64, 64, 0, 64);
 
-	int sto = (((player->ry&0x7FFF))>>(15-6));
+	int stso = (((player->ry&0x7FFF))>>(15-8));
+	int sto = stso>>2;
+	stso &= 3;
+	//sdblur++; if((sdblur & 2) != 0) stso^=1;
 	/*
 	gpu_send_control_gp0(0x2C7F7F7F);
 	gpu_push_vertex(-160, -120); gpu_send_data((0x00000000+sto) | (((63<<6)|(576>>4))<<16));
@@ -88,10 +93,10 @@ static void game_update_frame(void)
 	const int sxo = 0;//1;
 	const int syo = 0;//2;//240/64/2;
 	gpu_send_control_gp0(0x2E7F7F7F);
-	gpu_push_vertex(-160+sxo, -120+syo); gpu_send_data((0x00000000+sto) | (((63<<6)|(576>>4))<<16));
-	gpu_push_vertex( 160+sxo, -120+syo); gpu_send_data((0x00000050+sto) | (0x0609<<16));
-	gpu_push_vertex(-160+sxo,  120+syo); gpu_send_data((0x00003F00+sto));
-	gpu_push_vertex( 160+sxo,  120+syo); gpu_send_data((0x00003F50+sto));
+	gpu_push_vertex(-164+sxo+stso, -120+syo); gpu_send_data((0x00000000+sto) | (((63<<6)|(576>>4))<<16));
+	gpu_push_vertex( 164+sxo+stso, -120+syo); gpu_send_data((0x00000050+sto) | (0x0609<<16));
+	gpu_push_vertex(-164+sxo+stso,  120+syo); gpu_send_data((0x00003F00+sto));
+	gpu_push_vertex( 164+sxo+stso,  120+syo); gpu_send_data((0x00003F50+sto));
 
 	// Draw geometry
 	mesh_clear();
