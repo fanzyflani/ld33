@@ -2,6 +2,7 @@
 #define HMAP_L (1<<(HMAP_POW))
 #define VISRANGE 5
 static fixed hmap[HMAP_L][HMAP_L];
+static uint32_t hmap_c[HMAP_L][HMAP_L];
 
 static int hmap_visx = 0;
 static int hmap_visz = 0;
@@ -57,6 +58,25 @@ static void hmap_gen(void)
 				((hmap[z1][x0] + hmap[z0][x1] + hmap[z1][x2] + hmap[z2][x1])>>2)
 				+ fixmulf(amp, fixrand1s());
 		}
+	}
+
+	// Calculate ambient occlusion
+	for(z = 0; z < HMAP_L; z++)
+	for(x = 0; x < HMAP_L; x++)
+	{
+		fixed ynx = hmap[z][(x-1)&(HMAP_L-1)];
+		fixed ynz = hmap[(z-1)&(HMAP_L-1)][x];
+		fixed ypx = hmap[z][(x+1)&(HMAP_L-1)];
+		fixed ypz = hmap[(z+1)&(HMAP_L-1)][x];
+		fixed y00 = hmap[z][x];
+		fixed ysm = (ynx+ynz+ypx+ypz+2)>>2;
+		fixed col = ysm-y00;
+		col >>= 10;
+		col += 0x40;
+		if(col < 0x00) col = 0x00;
+		if(col > 0xDF) col = 0xDF;
+
+		hmap_c[z][x] = (((uint32_t)col)<<8) | (0x34<<24);
 	}
 
 	// Add heightmap as texture

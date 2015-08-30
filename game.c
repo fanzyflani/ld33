@@ -8,7 +8,8 @@ static vec3 mworld_v[(VISRANGE*2+2)*(VISRANGE*2+2)];
 static uint16_t mworld_i[6*(VISRANGE*2+1)*(VISRANGE*2+1)];
 static uint32_t mworld_c[6*2*(VISRANGE*2+1)*(VISRANGE*2+1)+1];
 static uint32_t mworld_cm[(VISRANGE*2+2)*(VISRANGE*2+2)];
-static fixed hmap_tmp[(VISRANGE*2)+2+2][(VISRANGE*2)+2+2];
+static fixed hmap_tmp[(VISRANGE*2)+2][(VISRANGE*2)+2];
+static uint32_t hmap_tmp_c[(VISRANGE*2)+2][(VISRANGE*2)+2];
 static mesh_s mworld = {
 	4,
 	(const vec3 *)mworld_v,
@@ -117,32 +118,23 @@ static void game_update_frame(void)
 		mworld_lxoffs = xoffs;
 		mworld_lzoffs = zoffs;
 
-		for(x = -1; x < VISRANGE*2+2+1; x++)
-		for(z = -1; z < VISRANGE*2+2+1; z++)
+		for(x = 0; x < VISRANGE*2+2; x++)
+		for(z = 0; z < VISRANGE*2+2; z++)
 		{
 			int x0 = (xoffs+x) & (HMAP_L-1);
 			int z0 = (zoffs+z) & (HMAP_L-1);
 
-			hmap_tmp[z+1][x+1] = hmap[z0][x0];
+			hmap_tmp[z][x] = hmap[z0][x0];
+			hmap_tmp_c[z][x] = hmap_c[z0][x0];
 		}
 
 		// translate so the GTE doesn't break
 		for(x = 0, i = 0; x < VISRANGE*2+2; x++)
 		for(z = 0; z < VISRANGE*2+2; z++, i++)
 		{
-			fixed ynx = hmap_tmp[z+1][x+0];
-			fixed ynz = hmap_tmp[z+0][x+1];
-			fixed ypx = hmap_tmp[z+1][x+2];
-			fixed ypz = hmap_tmp[z+2][x+1];
-			fixed y00 = hmap_tmp[z+1][x+1];
-			fixed ysm = (ynx+ynz+ypx+ypz+2)>>2;
-			fixed col = ysm-y00;
-			col >>= 10;
-			col += 0x40;
-			if(col < 0x00) col = 0x00;
-			if(col > 0xDF) col = 0xDF;
-
-			mworld_cm[i] = (col<<8) | (0x34<<24);
+			fixed y00 = hmap_tmp[z][x];
+			uint32_t col = hmap_tmp_c[z][x];
+			mworld_cm[i] = col;//(col<<8) | (0x34<<24);
 			vec3_set(&mworld_v[i], (x)<<18, y00, (z)<<18);
 		}
 		mworld.vc = i;
@@ -214,8 +206,8 @@ static void game_update_frame(void)
 			mworld_c[12*i+7] = mworld_c[12*i+2];
 			mworld_c[12*i+8] = mworld_c[12*i+1];
 
-			int clut = 0x0000;
-			int texpage = 0x0708;
+			const int clut = 0x0000;
+			const int texpage = 0x0708;
 			mworld_c[12*i+3+0] = 0x0000;
 			mworld_c[12*i+3+1] = 0x0020 | (texpage<<16);
 			mworld_c[12*i+3+2] = 0x2000;

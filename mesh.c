@@ -301,7 +301,7 @@ static void mesh_draw(const mesh_s *mesh, int flags)
 	int i, j;
 
 	// Set texpage + mask
-	gpu_send_control_gp0(0xE1000708);
+	//gpu_send_control_gp0(0xE1000708);
 	gpu_draw_texmask(32, 32, 0, 64);
 
 	// Combine matrices

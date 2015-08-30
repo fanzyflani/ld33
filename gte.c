@@ -152,6 +152,19 @@ static void gte_save_s012_vec3(vec3 *v0, vec3 *v1, vec3 *v2)
 	(*v2)[2] = (fixed)res2_z;
 }
 
+static void gte_save_s012xy_ui32(uint32_t *xy0, uint32_t *xy1, uint32_t *xy2)
+{
+	asm volatile(
+		"\tmfc2 %0, $12\n"
+		"\tmfc2 %1, $13\n"
+		"\tmfc2 %2, $14\n"
+		:
+		"=r"(*xy0),
+		"=r"(*xy1),
+		"=r"(*xy2)
+		::);
+}
+
 static void gte_cmd_rtps(void)
 {
 	asm volatile ("\tcop2 0x0180001\n");
